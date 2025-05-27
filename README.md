@@ -82,3 +82,30 @@ You can also run this locally for testing:
 - Node.js 20 or later
 - A Notion workspace with integration access
 - GitHub repository with issues to sync
+
+## Development
+
+### Building the Action
+
+This GitHub Action uses `@vercel/ncc` to bundle all dependencies into a single file. When making changes:
+
+1. Install dependencies:
+   ```bash
+   npm install
+   ```
+
+2. Make your changes to `index.js`
+
+3. Build the action:
+   ```bash
+   npm run build
+   ```
+
+4. Commit both your changes and the `dist/` folder:
+   ```bash
+   git add .
+   git commit -m "Your commit message"
+   git push
+   ```
+
+**Important**: Always run `npm run build` before committing to ensure the `dist/index.js` file is up to date with your changes.

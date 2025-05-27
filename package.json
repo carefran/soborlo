@@ -4,7 +4,8 @@
   "description": "A simple tool to sync GitHub issues to Notion",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "ncc build index.js -o dist"
   },
   "keywords": [
     "github",
@@ -17,5 +18,8 @@
     "@tryfabric/martian": "^1.2.4",
     "axios": "^1.6.0",
     "dotenv": "^16.4.5"
+  },
+  "devDependencies": {
+    "@vercel/ncc": "^0.38.1"
   }
 }
