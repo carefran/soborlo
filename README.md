@@ -35,14 +35,39 @@ Copy database ID from the URL of the database:
 
 ### 3. Set GitHub Secrets
 
-Set three GitHub secrets in the repository settings:
+Set the following GitHub secrets in the repository settings:
+
+#### Required Secrets:
 - `NOTION_API_KEY`: The token of the Notion integration
 - `NOTION_DATABASE_ID`: The ID of the Notion database
+
+#### Optional Secret (for private repositories):
+- `GITHUB_TOKEN`: GitHub personal access token or the default token
+
+##### Using the default GITHUB_TOKEN (Recommended):
+The easiest way is to use the default `GITHUB_TOKEN` that GitHub automatically provides:
+```yaml
+GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+```
+This token has read access to the repository where the workflow runs.
+
+##### Using a Personal Access Token (PAT):
+If you need to sync issues from a different repository or need more permissions:
+
+1. Go to GitHub Settings → Developer settings → Personal access tokens → Tokens (classic)
+2. Click "Generate new token (classic)"
+3. Give it a descriptive name (e.g., "Notion Sync")
+4. Select the following scopes:
+   - `repo` (for private repositories)
+   - `public_repo` (for public repositories only)
+5. Generate the token and copy it
+6. Add it as a secret named `GITHUB_TOKEN` in your repository settings
 
 ### 4. Create Workflow
 
 Create a workflow file `.github/workflows/sync-issues.yml` in your repository:
 
+#### For Public Repositories:
 ```yaml
 name: Sync issues to Notion
 
@@ -61,13 +86,33 @@ jobs:
           repo: ${{ github.repository }}
           NOTION_API_KEY: ${{ secrets.NOTION_API_KEY }}
           NOTION_DATABASE_ID: ${{ secrets.NOTION_DATABASE_ID }}
-          # Optional: Add GITHUB_TOKEN for private repositories or to avoid rate limits
-          # GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+```
+
+#### For Private Repositories:
+```yaml
+name: Sync issues to Notion
+
+on:
+  issues:
+    types: [opened, edited, deleted, closed, reopened]
+  workflow_dispatch:
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Notion GitHub Issues Automation
+        uses: carefran/GitHub-issue-2-Notion@main
+        with:
+          repo: ${{ github.repository }}
+          NOTION_API_KEY: ${{ secrets.NOTION_API_KEY }}
+          NOTION_DATABASE_ID: ${{ secrets.NOTION_DATABASE_ID }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # Required for private repos
 ```
 
 **Note**: 
-- For public repositories, `GITHUB_TOKEN` is optional
-- For private repositories, you must provide `GITHUB_TOKEN`
+- For public repositories, `GITHUB_TOKEN` is optional but recommended to avoid rate limits
+- For private repositories, `GITHUB_TOKEN` is required
 - The default `GITHUB_TOKEN` provided by GitHub Actions has read access to the repository
 
 ## Manual Testing
@@ -81,6 +126,8 @@ You can also run this locally for testing:
    export repo="owner/repository-name"
    export NOTION_API_KEY="your-notion-token"
    export NOTION_DATABASE_ID="your-database-id"
+   # Optional: For private repositories
+   export GITHUB_TOKEN="your-github-token"
    ```
 4. Run: `node index.js`
 
