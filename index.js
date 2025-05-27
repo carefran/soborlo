@@ -10,30 +10,60 @@ async function main() {
         const repo = core.getInput("repo");
         const notionToken = core.getInput("NOTION_API_KEY");
         const notionDatabaseId = core.getInput("NOTION_DATABASE_ID");
+        const githubToken = core.getInput("GITHUB_TOKEN");
 
         console.log(`Syncing issues from repository: ${repo}`);
 
-        // Get all issues from the public repository
-        const issuesUrl = `https://api.github.com/repos/${repo}/issues?state=all`;
-        const issuesResponse = await axios.get(issuesUrl, {
-            headers: {
-                "User-Agent": "github-issue-2-notion",
-            },
-        });
-
-        const issues = issuesResponse.data;
-        console.log(`Found ${issues.length} issues to sync`);
-
-        for (const issue of issues) {
-            try {
-                await syncIssueToNotion(issue, notionToken, notionDatabaseId);
-            } catch (error) {
-                console.error(`Failed to sync issue ${issue.number}:`, error.message);
-                // Continue with other issues even if one fails
-            }
+        // Prepare headers for GitHub API
+        const githubHeaders = {
+            "User-Agent": "github-issue-2-notion",
+        };
+        
+        // Add authorization header if GitHub token is provided
+        if (githubToken) {
+            githubHeaders.Authorization = `Bearer ${githubToken}`;
+            console.log("Using GitHub token for authentication");
         }
 
-        console.log("Sync completed successfully");
+        // Get all issues from the repository
+        const issuesUrl = `https://api.github.com/repos/${repo}/issues?state=all`;
+        
+        try {
+            const issuesResponse = await axios.get(issuesUrl, {
+                headers: githubHeaders,
+            });
+
+            const issues = issuesResponse.data;
+            console.log(`Found ${issues.length} issues to sync`);
+
+            for (const issue of issues) {
+                try {
+                    await syncIssueToNotion(issue, notionToken, notionDatabaseId);
+                } catch (error) {
+                    console.error(`Failed to sync issue ${issue.number}:`, error.message);
+                    // Continue with other issues even if one fails
+                }
+            }
+
+            console.log("Sync completed successfully");
+        } catch (error) {
+            if (error.response?.status === 404) {
+                console.error(`Repository '${repo}' not found. Please check:`);
+                console.error("1. The repository name is correct (format: owner/repo)");
+                console.error("2. The repository exists and is accessible");
+                if (!githubToken) {
+                    console.error("3. If it's a private repository, provide GITHUB_TOKEN");
+                }
+            } else if (error.response?.status === 403) {
+                console.error("GitHub API rate limit exceeded or access forbidden");
+                if (!githubToken) {
+                    console.error("Consider providing GITHUB_TOKEN for higher rate limits");
+                }
+            } else {
+                console.error("Failed to fetch issues:", error.message);
+            }
+            throw error;
+        }
     } catch (error) {
         console.error("Main process failed:", error.message);
         process.exit(1);

@@ -61,7 +61,14 @@ jobs:
           repo: ${{ github.repository }}
           NOTION_API_KEY: ${{ secrets.NOTION_API_KEY }}
           NOTION_DATABASE_ID: ${{ secrets.NOTION_DATABASE_ID }}
+          # Optional: Add GITHUB_TOKEN for private repositories or to avoid rate limits
+          # GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 ```
+
+**Note**: 
+- For public repositories, `GITHUB_TOKEN` is optional
+- For private repositories, you must provide `GITHUB_TOKEN`
+- The default `GITHUB_TOKEN` provided by GitHub Actions has read access to the repository
 
 ## Manual Testing
 
