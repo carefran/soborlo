@@ -1,0 +1,28 @@
+name: Sync Issues to Notion (By EM)
+
+on:
+  issues:
+    types: [opened, edited, deleted, reopened, closed]
+  workflow_dispatch:
+
+jobs:
+  sync-issues:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        
+      - name: Use Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          
+      - name: Install dependencies
+        run: npm install
+        
+      - name: Sync issues with Notion
+        run: node index.js
+        env:
+          repo: ${{ github.repository }}
+          NOTION_API_KEY: ${{ secrets.NOTION_API_KEY }}
+          NOTION_DATABASE_ID: ${{ secrets.NOTION_DATABASE_ID }}

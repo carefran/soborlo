@@ -2,165 +2,206 @@
 
 // Load the required modules
 const core = require("@actions/core");
-const request = require("request");
+const axios = require("axios");
 const { markdownToBlocks } = require("@tryfabric/martian");
 
 async function main() {
-    const repo = core.getInput("repo");
-    const notionToken = core.getInput("NOTION_API_KEY");
-    const notionDatabaseId = core.getInput("NOTION_DATABASE_ID");
+    try {
+        const repo = core.getInput("repo");
+        const notionToken = core.getInput("NOTION_API_KEY");
+        const notionDatabaseId = core.getInput("NOTION_DATABASE_ID");
 
-    // Get all issues from the public repository
-    const issuesUrl = `https://api.github.com/repos/${repo}/issues?state=all`;
-    // use GET request to get all issues
-    const issuesResponse = await new Promise((resolve, reject) => {
-        request(
+        console.log(`Syncing issues from repository: ${repo}`);
+
+        // Get all issues from the public repository
+        const issuesUrl = `https://api.github.com/repos/${repo}/issues?state=all`;
+        const issuesResponse = await axios.get(issuesUrl, {
+            headers: {
+                "User-Agent": "github-issue-2-notion",
+            },
+        });
+
+        const issues = issuesResponse.data;
+        console.log(`Found ${issues.length} issues to sync`);
+
+        for (const issue of issues) {
+            try {
+                await syncIssueToNotion(issue, notionToken, notionDatabaseId);
+            } catch (error) {
+                console.error(`Failed to sync issue ${issue.number}:`, error.message);
+                // Continue with other issues even if one fails
+            }
+        }
+
+        console.log("Sync completed successfully");
+    } catch (error) {
+        console.error("Main process failed:", error.message);
+        process.exit(1);
+    }
+}
+
+async function syncIssueToNotion(issue, notionToken, notionDatabaseId) {
+    const issueId = issue.id;
+    const issueNumber = issue.number;
+
+    // Check if the issue already exists in Notion
+    const existingPage = await findExistingNotionPage(issueId, notionToken, notionDatabaseId);
+
+    // Prepare the page data
+    const pageData = createNotionPageData(issue, notionDatabaseId, existingPage !== null);
+
+    if (existingPage) {
+        console.log(`Issue #${issueNumber} already exists in Notion, updating it`);
+        await updateNotionPage(existingPage.id, pageData, notionToken);
+    } else {
+        console.log(`Creating new issue #${issueNumber} in Notion`);
+        await createNotionPage(pageData, notionToken);
+    }
+
+    console.log(`Issue #${issueNumber} synced successfully`);
+}
+
+async function findExistingNotionPage(issueId, notionToken, notionDatabaseId) {
+    try {
+        const response = await axios.post(
+            `https://api.notion.com/v1/databases/${notionDatabaseId}/query`,
             {
-                url: issuesUrl,
-                method: "GET",
-                headers: {
-                    "User-Agent": "request",
+                filter: {
+                    property: "ID",
+                    number: {
+                        equals: issueId,
+                    },
                 },
             },
-            (error, response, body) => {
-                if (error) {
-                    reject(error);
-                }
-                resolve(JSON.parse(body));
+            {
+                headers: {
+                    Authorization: `Bearer ${notionToken}`,
+                    "Notion-Version": "2022-06-28",
+                    "Content-Type": "application/json",
+                },
             }
         );
-    });
-    for (const issue of issuesResponse) {
-        const issueId = issue.id;
-        const notionUrl = `https://api.notion.com/v1/databases/${notionDatabaseId}/query`;
-        const notionResponse = await new Promise((resolve, reject) => {
-            request(
-                {
-                    url: notionUrl,
-                    method: "POST",
-                    headers: {
-                        Authorization: `Bearer ${notionToken}`,
-                        "Notion-Version": "2022-06-28",
-                        "Content-Type": "application/json",
-                    },
-                    body: JSON.stringify({
-                        filter: {
-                            property: "ID",
-                            number: {
-                                equals: issueId,
-                            },
+
+        return response.data.results.length > 0 ? response.data.results[0] : null;
+    } catch (error) {
+        console.error("Error finding existing Notion page:", error.message);
+        throw error;
+    }
+}
+
+function createNotionPageData(issue, notionDatabaseId, isUpdate = false) {
+    const baseData = {
+        properties: {
+            Name: {
+                title: [
+                    {
+                        text: {
+                            content: issue.title || "Untitled Issue",
                         },
-                    }),
-                },
-                (error, response, body) => {
-                    if (error) {
-                        reject(error);
-                    }
-                    resolve(JSON.parse(body));
-                }
-            );
-        });
-        const body = {
-            parent: { database_id: notionDatabaseId },
-            icon: {
-                emoji: "⚡",
+                    },
+                ],
             },
-            properties: {
-                Name: {
-                    title: [
-                        {
-                            text: {
-                                content: issue.title,
-                            },
-                        },
-                    ],
-                },
-                ID: {
-                    number: issueId,
-                },
-                State: {
-                    select: {
-                        name: issue.state.charAt(0).toUpperCase() + issue.state.slice(1)
-                    },
-                },
-                Status: {
-                    status: {
-                        name: "Not started",
-                    },
-                },
-                Labels: {
-                    multi_select: issue.labels.map(label => ({
-                        name: label.name,
-                    })),
-                },
-                URL: {
-                    url: issue.html_url,
+            ID: {
+                number: issue.id,
+            },
+            Number: {
+                number: issue.number,
+            },
+            State: {
+                select: {
+                    name: issue.state.charAt(0).toUpperCase() + issue.state.slice(1),
                 },
             },
-            children: issue.body != null ? markdownToBlocks(issue.body) : [],
+            Labels: {
+                multi_select: (issue.labels || []).map(label => ({
+                    name: label.name,
+                })),
+            },
+            URL: {
+                url: issue.html_url,
+            },
+        },
+    };
+
+    // Add Status property only for new issues
+    if (!isUpdate) {
+        baseData.parent = { database_id: notionDatabaseId };
+        baseData.icon = {
+            emoji: "⚡",
         };
-        if (notionResponse.results.length > 0) {
-            console.log(
-                `Issue ${issueId} already exists in Notion, updating it`
-            );
-            // Update the issue in Notion
-            const notionPageId = notionResponse.results[0].id;
-            // remove Status from body
-            delete body.properties.Status;
-            const updateUrl = `https://api.notion.com/v1/pages/${notionPageId}`;
-            const updateResponse = await new Promise((resolve, reject) => {
-                request(
+        baseData.properties.Status = {
+            status: {
+                name: "Not started",
+            },
+        };
+        // Add issue body as children blocks
+        if (issue.body) {
+            try {
+                baseData.children = markdownToBlocks(issue.body);
+            } catch (error) {
+                console.warn("Failed to convert markdown to blocks:", error.message);
+                baseData.children = [
                     {
-                        url: updateUrl,
-                        method: "PATCH",
-                        headers: {
-                            Authorization: `Bearer ${notionToken}`,
-                            "Content-Type": "application/json",
-                            "Notion-Version": "2022-06-28",
+                        object: "block",
+                        type: "paragraph",
+                        paragraph: {
+                            rich_text: [
+                                {
+                                    type: "text",
+                                    text: {
+                                        content: issue.body,
+                                    },
+                                },
+                            ],
                         },
-                        body: JSON.stringify(body),
                     },
-                    (error, response, body) => {
-                        if (error) {
-                            reject(error);
-                        }
-                        resolve(JSON.parse(body));
-                    }
-                );
-            });
-        } else {
-            console.log(`Creating new issue ${issueId} in Notion`);
-            // Create a new issue in Notion
-            const createUrl = `https://api.notion.com/v1/pages`;
-            // for body add property thtle, ID, title, State, labels, and put description in content
-            const createResponse = await new Promise((resolve, reject) => {
-                request(
-                    {
-                        url: createUrl,
-                        method: "POST",
-                        headers: {
-                            Authorization: `Bearer ${notionToken}`,
-                            "Content-Type": "application/json",
-                            "Notion-Version": "2022-06-28",
-                        },
-                        body: JSON.stringify(body),
-                    },
-                    (error, response, body) => {
-                        console.log(body);
-                        if (error) {
-                            reject(error);
-                        }
-                        resolve(JSON.parse(body));
-                        return;
-                    }
-                );
-            });
-            console.log(`Issue ${issueId} created in Notion`);
+                ];
+            }
         }
+    }
+
+    return baseData;
+}
+
+async function createNotionPage(pageData, notionToken) {
+    try {
+        const response = await axios.post("https://api.notion.com/v1/pages", pageData, {
+            headers: {
+                Authorization: `Bearer ${notionToken}`,
+                "Content-Type": "application/json",
+                "Notion-Version": "2022-06-28",
+            },
+        });
+
+        return response.data;
+    } catch (error) {
+        console.error("Error creating Notion page:", error.response?.data || error.message);
+        throw error;
+    }
+}
+
+async function updateNotionPage(pageId, pageData, notionToken) {
+    try {
+        const response = await axios.patch(
+            `https://api.notion.com/v1/pages/${pageId}`,
+            pageData,
+            {
+                headers: {
+                    Authorization: `Bearer ${notionToken}`,
+                    "Content-Type": "application/json",
+                    "Notion-Version": "2022-06-28",
+                },
+            }
+        );
+
+        return response.data;
+    } catch (error) {
+        console.error("Error updating Notion page:", error.response?.data || error.message);
+        throw error;
     }
 }
 
 main().catch(error => {
-    console.error(error);
+    console.error("Unhandled error:", error);
     process.exit(1);
 });
