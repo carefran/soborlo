@@ -1,10 +1,6 @@
 # GitHub-issue-2-Notion
 A simple tool to sync GitHub issues to Notion beautifully
 
-一個簡單的工具，將 GitHub 的 issue 優雅的同步到 Notion
-
-![screenshot](image.png)
-
 ## Features
 
 - [x] Sync issue to Notion
