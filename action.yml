@@ -6,17 +6,21 @@ branding:
   icon: activity
 inputs:
   repo:
-    description: 'The GitHub repository name.'
+    description: "The GitHub repository name."
     required: true
   NOTION_API_KEY:
-    description: 'The Notion API key.'
+    description: "The Notion API key."
     required: true
   NOTION_DATABASE_ID:
-    description: 'The ID of the Notion database.'
+    description: "The ID of the Notion database."
     required: true
   GITHUB_TOKEN:
-    description: 'GitHub token for accessing private repositories (optional)'
+    description: "GitHub token for accessing private repositories (optional)"
     required: false
+  include_pull_requests:
+    description: "Whether to include Pull Requests in sync (true/false)"
+    required: false
+    default: "false"
 runs:
-  using: 'node20'
-  main: 'dist/index.js'
+  using: "node20"
+  main: "dist/index.js"

@@ -5035,7 +5035,7 @@ exports.colors = [6, 2, 3, 4, 5, 1];
 try {
 	// Optional dependency (as in, doesn't need to be installed, NOT like optionalDependencies in package.json)
 	// eslint-disable-next-line import/no-extraneous-dependencies
-	const supportsColor = __nccwpck_require__(75);
+	const supportsColor = __nccwpck_require__(1450);
 
 	if (supportsColor && (supportsColor.stderr || supportsColor).level >= 2) {
 		exports.colors = [
@@ -7028,6 +7028,22 @@ if ($gOPD) {
 }
 
 module.exports = $gOPD;
+
+
+/***/ }),
+
+/***/ 3813:
+/***/ ((module) => {
+
+"use strict";
+
+
+module.exports = (flag, argv = process.argv) => {
+	const prefix = flag.startsWith('-') ? '' : (flag.length === 1 ? '-' : '--');
+	const position = argv.indexOf(prefix + flag);
+	const terminatorPosition = argv.indexOf('--');
+	return position !== -1 && (terminatorPosition === -1 || position < terminatorPosition);
+};
 
 
 /***/ }),
@@ -18364,6 +18380,149 @@ function repeat(str, num) {
   res = res.substr(0, max);
   return res;
 }
+
+
+/***/ }),
+
+/***/ 1450:
+/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
+
+"use strict";
+
+const os = __nccwpck_require__(857);
+const tty = __nccwpck_require__(2018);
+const hasFlag = __nccwpck_require__(3813);
+
+const {env} = process;
+
+let forceColor;
+if (hasFlag('no-color') ||
+	hasFlag('no-colors') ||
+	hasFlag('color=false') ||
+	hasFlag('color=never')) {
+	forceColor = 0;
+} else if (hasFlag('color') ||
+	hasFlag('colors') ||
+	hasFlag('color=true') ||
+	hasFlag('color=always')) {
+	forceColor = 1;
+}
+
+if ('FORCE_COLOR' in env) {
+	if (env.FORCE_COLOR === 'true') {
+		forceColor = 1;
+	} else if (env.FORCE_COLOR === 'false') {
+		forceColor = 0;
+	} else {
+		forceColor = env.FORCE_COLOR.length === 0 ? 1 : Math.min(parseInt(env.FORCE_COLOR, 10), 3);
+	}
+}
+
+function translateLevel(level) {
+	if (level === 0) {
+		return false;
+	}
+
+	return {
+		level,
+		hasBasic: true,
+		has256: level >= 2,
+		has16m: level >= 3
+	};
+}
+
+function supportsColor(haveStream, streamIsTTY) {
+	if (forceColor === 0) {
+		return 0;
+	}
+
+	if (hasFlag('color=16m') ||
+		hasFlag('color=full') ||
+		hasFlag('color=truecolor')) {
+		return 3;
+	}
+
+	if (hasFlag('color=256')) {
+		return 2;
+	}
+
+	if (haveStream && !streamIsTTY && forceColor === undefined) {
+		return 0;
+	}
+
+	const min = forceColor || 0;
+
+	if (env.TERM === 'dumb') {
+		return min;
+	}
+
+	if (process.platform === 'win32') {
+		// Windows 10 build 10586 is the first Windows release that supports 256 colors.
+		// Windows 10 build 14931 is the first release that supports 16m/TrueColor.
+		const osRelease = os.release().split('.');
+		if (
+			Number(osRelease[0]) >= 10 &&
+			Number(osRelease[2]) >= 10586
+		) {
+			return Number(osRelease[2]) >= 14931 ? 3 : 2;
+		}
+
+		return 1;
+	}
+
+	if ('CI' in env) {
+		if (['TRAVIS', 'CIRCLECI', 'APPVEYOR', 'GITLAB_CI', 'GITHUB_ACTIONS', 'BUILDKITE'].some(sign => sign in env) || env.CI_NAME === 'codeship') {
+			return 1;
+		}
+
+		return min;
+	}
+
+	if ('TEAMCITY_VERSION' in env) {
+		return /^(9\.(0*[1-9]\d*)\.|\d{2,}\.)/.test(env.TEAMCITY_VERSION) ? 1 : 0;
+	}
+
+	if (env.COLORTERM === 'truecolor') {
+		return 3;
+	}
+
+	if ('TERM_PROGRAM' in env) {
+		const version = parseInt((env.TERM_PROGRAM_VERSION || '').split('.')[0], 10);
+
+		switch (env.TERM_PROGRAM) {
+			case 'iTerm.app':
+				return version >= 3 ? 3 : 2;
+			case 'Apple_Terminal':
+				return 2;
+			// No default
+		}
+	}
+
+	if (/-256(color)?$/i.test(env.TERM)) {
+		return 2;
+	}
+
+	if (/^screen|^xterm|^vt100|^vt220|^rxvt|color|ansi|cygwin|linux/i.test(env.TERM)) {
+		return 1;
+	}
+
+	if ('COLORTERM' in env) {
+		return 1;
+	}
+
+	return min;
+}
+
+function getSupportLevel(stream) {
+	const level = supportsColor(stream, stream && stream.isTTY);
+	return translateLevel(level);
+}
+
+module.exports = {
+	supportsColor: getSupportLevel,
+	stdout: translateLevel(supportsColor(true, tty.isatty(1))),
+	stderr: translateLevel(supportsColor(true, tty.isatty(2)))
+};
 
 
 /***/ }),
@@ -42063,10 +42222,327 @@ module.exports = process
 
 /***/ }),
 
-/***/ 75:
-/***/ ((module) => {
+/***/ 9407:
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
 
-module.exports = eval("require")("supports-color");
+"use strict";
+
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+const core = __importStar(__nccwpck_require__(7484));
+const github_1 = __nccwpck_require__(7865);
+const notion_1 = __nccwpck_require__(1304);
+async function main() {
+    try {
+        const repo = core.getInput('repo');
+        const notionToken = core.getInput('NOTION_API_KEY');
+        const notionDatabaseId = core.getInput('NOTION_DATABASE_ID');
+        const githubToken = core.getInput('GITHUB_TOKEN');
+        const includePullRequests = core.getInput('include_pull_requests').toLowerCase() === 'true';
+        console.log(`Syncing items from repository: ${repo}`);
+        console.log(`Include Pull Requests: ${includePullRequests}`);
+        const items = await (0, github_1.getIssuesAndPullRequests)(repo, includePullRequests, githubToken);
+        console.log(`Found ${items.length} items to sync (Issues${includePullRequests ? ' and Pull Requests' : ''})`);
+        for (const item of items) {
+            try {
+                const existingPage = await (0, notion_1.findExistingNotionPage)(item.id, notionToken, notionDatabaseId);
+                const pageData = (0, notion_1.createNotionPageData)(item, notionDatabaseId, existingPage !== null);
+                const itemType = 'merged' in item ? 'Pull Request' : 'Issue';
+                if (existingPage) {
+                    console.log(`${itemType} #${item.number} already exists in Notion, updating it`);
+                    await (0, notion_1.updateNotionPage)(existingPage.id, pageData, notionToken);
+                }
+                else {
+                    console.log(`Creating new ${itemType} #${item.number} in Notion`);
+                    await (0, notion_1.createNotionPage)(pageData, notionToken);
+                }
+                console.log(`${itemType} #${item.number} synced successfully`);
+            }
+            catch (error) {
+                const itemType = 'merged' in item ? 'Pull Request' : 'Issue';
+                console.error(`Failed to sync ${itemType} ${item.number}:`, error instanceof Error ? error.message : String(error));
+            }
+        }
+        console.log('Sync completed successfully');
+    }
+    catch (error) {
+        console.error('Main process failed:', error instanceof Error ? error.message : String(error));
+        process.exit(1);
+    }
+}
+main().catch(error => {
+    console.error('Unhandled error:', error instanceof Error ? error.message : String(error));
+    process.exit(1);
+});
+
+
+/***/ }),
+
+/***/ 7865:
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+
+"use strict";
+
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.getIssues = getIssues;
+exports.getPullRequests = getPullRequests;
+exports.getIssuesAndPullRequests = getIssuesAndPullRequests;
+const axios_1 = __importDefault(__nccwpck_require__(7269));
+async function getIssues(repo, githubToken) {
+    const headers = {
+        'User-Agent': 'github-issue-2-notion'
+    };
+    if (githubToken) {
+        headers.Authorization = `Bearer ${githubToken}`;
+    }
+    const response = await axios_1.default.get(`https://api.github.com/repos/${repo}/issues?state=all`, { headers });
+    // Pull Requestを除外（GitHub APIではPRもissuesに含まれる）
+    return response.data.filter(issue => !('pull_request' in issue));
+}
+async function getPullRequests(repo, githubToken) {
+    const headers = {
+        'User-Agent': 'github-issue-2-notion'
+    };
+    if (githubToken) {
+        headers.Authorization = `Bearer ${githubToken}`;
+    }
+    const response = await axios_1.default.get(`https://api.github.com/repos/${repo}/pulls?state=all`, { headers });
+    return response.data;
+}
+async function getIssuesAndPullRequests(repo, includePullRequests, githubToken) {
+    const items = [];
+    // 常にIssueを取得
+    const issues = await getIssues(repo, githubToken);
+    items.push(...issues);
+    // オプションでPull Requestを取得
+    if (includePullRequests) {
+        const pullRequests = await getPullRequests(repo, githubToken);
+        items.push(...pullRequests);
+    }
+    return items;
+}
+
+
+/***/ }),
+
+/***/ 1304:
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+
+"use strict";
+
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.findExistingNotionPage = findExistingNotionPage;
+exports.createNotionPageData = createNotionPageData;
+exports.createNotionPage = createNotionPage;
+exports.updateNotionPage = updateNotionPage;
+const axios_1 = __importDefault(__nccwpck_require__(7269));
+const martian_1 = __nccwpck_require__(7841);
+async function findExistingNotionPage(itemId, notionToken, notionDatabaseId) {
+    const response = await axios_1.default.post(`https://api.notion.com/v1/databases/${notionDatabaseId}/query`, {
+        filter: {
+            property: 'ID',
+            number: {
+                equals: itemId
+            }
+        }
+    }, {
+        headers: {
+            Authorization: `Bearer ${notionToken}`,
+            'Notion-Version': '2022-06-28',
+            'Content-Type': 'application/json'
+        }
+    });
+    return response.data.results.length > 0 ? response.data.results[0] : null;
+}
+function isPullRequest(item) {
+    return 'merged' in item && 'draft' in item;
+}
+function createNotionPageData(item, notionDatabaseId, isUpdate = false) {
+    const isPR = isPullRequest(item);
+    const baseData = {
+        properties: {
+            Name: {
+                title: [
+                    {
+                        text: {
+                            content: item.title || (isPR ? 'Untitled Pull Request' : 'Untitled Issue')
+                        }
+                    }
+                ]
+            },
+            ID: {
+                number: item.id
+            },
+            Number: {
+                number: item.number
+            },
+            State: {
+                select: {
+                    name: item.state.charAt(0).toUpperCase() + item.state.slice(1)
+                }
+            },
+            Labels: {
+                multi_select: (item.labels || []).map(label => ({
+                    name: label.name
+                }))
+            },
+            URL: {
+                url: item.html_url
+            },
+            Type: {
+                select: {
+                    name: isPR ? 'Pull Request' : 'Issue'
+                }
+            }
+        }
+    };
+    // 担当者とマイルストーンの追加
+    if (item.assignees && item.assignees.length > 0) {
+        baseData.properties.Assignees = {
+            multi_select: item.assignees.map(assignee => ({
+                name: assignee.login
+            }))
+        };
+    }
+    if (item.milestone) {
+        baseData.properties.Milestone = {
+            rich_text: [
+                {
+                    text: {
+                        content: item.milestone.title
+                    }
+                }
+            ]
+        };
+    }
+    // Pull Request専用プロパティの追加
+    if (isPR) {
+        baseData.properties.Draft = {
+            checkbox: item.draft
+        };
+        baseData.properties.Merged = {
+            checkbox: item.merged
+        };
+        baseData.properties['Base Branch'] = {
+            rich_text: [
+                {
+                    text: {
+                        content: item.base.ref
+                    }
+                }
+            ]
+        };
+        baseData.properties['Head Branch'] = {
+            rich_text: [
+                {
+                    text: {
+                        content: item.head.ref
+                    }
+                }
+            ]
+        };
+        baseData.properties.Additions = {
+            number: item.additions
+        };
+        baseData.properties.Deletions = {
+            number: item.deletions
+        };
+        baseData.properties['Changed Files'] = {
+            number: item.changed_files
+        };
+    }
+    if (!isUpdate) {
+        baseData.parent = { database_id: notionDatabaseId };
+        baseData.icon = { emoji: isPR ? '🔀' : '⚡' };
+        baseData.properties.Status = {
+            status: {
+                name: 'Not started'
+            }
+        };
+        if (item.body) {
+            try {
+                baseData.children = (0, martian_1.markdownToBlocks)(item.body);
+            }
+            catch (error) {
+                baseData.children = [
+                    {
+                        object: 'block',
+                        type: 'paragraph',
+                        paragraph: {
+                            rich_text: [
+                                {
+                                    type: 'text',
+                                    text: {
+                                        content: item.body
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                ];
+            }
+        }
+    }
+    return baseData;
+}
+async function createNotionPage(pageData, notionToken) {
+    const response = await axios_1.default.post('https://api.notion.com/v1/pages', pageData, {
+        headers: {
+            Authorization: `Bearer ${notionToken}`,
+            'Content-Type': 'application/json',
+            'Notion-Version': '2022-06-28'
+        }
+    });
+    return response.data;
+}
+async function updateNotionPage(pageId, pageData, notionToken) {
+    const response = await axios_1.default.patch(`https://api.notion.com/v1/pages/${pageId}`, pageData, {
+        headers: {
+            Authorization: `Bearer ${notionToken}`,
+            'Content-Type': 'application/json',
+            'Notion-Version': '2022-06-28'
+        }
+    });
+    return response.data;
+}
 
 
 /***/ }),
@@ -48789,245 +49265,12 @@ module.exports = /*#__PURE__*/JSON.parse('{"application/1d-interleaved-parityfec
 /******/ 	if (typeof __nccwpck_require__ !== 'undefined') __nccwpck_require__.ab = __dirname + "/";
 /******/ 	
 /************************************************************************/
-var __webpack_exports__ = {};
-/** @format */
-
-// Load the required modules
-const core = __nccwpck_require__(7484);
-const axios = __nccwpck_require__(7269);
-const { markdownToBlocks } = __nccwpck_require__(7841);
-
-async function main() {
-    try {
-        const repo = core.getInput("repo");
-        const notionToken = core.getInput("NOTION_API_KEY");
-        const notionDatabaseId = core.getInput("NOTION_DATABASE_ID");
-        const githubToken = core.getInput("GITHUB_TOKEN");
-
-        console.log(`Syncing issues from repository: ${repo}`);
-
-        // Prepare headers for GitHub API
-        const githubHeaders = {
-            "User-Agent": "github-issue-2-notion",
-        };
-        
-        // Add authorization header if GitHub token is provided
-        if (githubToken) {
-            githubHeaders.Authorization = `Bearer ${githubToken}`;
-            console.log("Using GitHub token for authentication");
-        }
-
-        // Get all issues from the repository
-        const issuesUrl = `https://api.github.com/repos/${repo}/issues?state=all`;
-        
-        try {
-            const issuesResponse = await axios.get(issuesUrl, {
-                headers: githubHeaders,
-            });
-
-            const issues = issuesResponse.data;
-            console.log(`Found ${issues.length} issues to sync`);
-
-            for (const issue of issues) {
-                try {
-                    await syncIssueToNotion(issue, notionToken, notionDatabaseId);
-                } catch (error) {
-                    console.error(`Failed to sync issue ${issue.number}:`, error.message);
-                    // Continue with other issues even if one fails
-                }
-            }
-
-            console.log("Sync completed successfully");
-        } catch (error) {
-            if (error.response?.status === 404) {
-                console.error(`Repository '${repo}' not found. Please check:`);
-                console.error("1. The repository name is correct (format: owner/repo)");
-                console.error("2. The repository exists and is accessible");
-                if (!githubToken) {
-                    console.error("3. If it's a private repository, provide GITHUB_TOKEN");
-                }
-            } else if (error.response?.status === 403) {
-                console.error("GitHub API rate limit exceeded or access forbidden");
-                if (!githubToken) {
-                    console.error("Consider providing GITHUB_TOKEN for higher rate limits");
-                }
-            } else {
-                console.error("Failed to fetch issues:", error.message);
-            }
-            throw error;
-        }
-    } catch (error) {
-        console.error("Main process failed:", error.message);
-        process.exit(1);
-    }
-}
-
-async function syncIssueToNotion(issue, notionToken, notionDatabaseId) {
-    const issueId = issue.id;
-    const issueNumber = issue.number;
-
-    // Check if the issue already exists in Notion
-    const existingPage = await findExistingNotionPage(issueId, notionToken, notionDatabaseId);
-
-    // Prepare the page data
-    const pageData = createNotionPageData(issue, notionDatabaseId, existingPage !== null);
-
-    if (existingPage) {
-        console.log(`Issue #${issueNumber} already exists in Notion, updating it`);
-        await updateNotionPage(existingPage.id, pageData, notionToken);
-    } else {
-        console.log(`Creating new issue #${issueNumber} in Notion`);
-        await createNotionPage(pageData, notionToken);
-    }
-
-    console.log(`Issue #${issueNumber} synced successfully`);
-}
-
-async function findExistingNotionPage(issueId, notionToken, notionDatabaseId) {
-    try {
-        const response = await axios.post(
-            `https://api.notion.com/v1/databases/${notionDatabaseId}/query`,
-            {
-                filter: {
-                    property: "ID",
-                    number: {
-                        equals: issueId,
-                    },
-                },
-            },
-            {
-                headers: {
-                    Authorization: `Bearer ${notionToken}`,
-                    "Notion-Version": "2022-06-28",
-                    "Content-Type": "application/json",
-                },
-            }
-        );
-
-        return response.data.results.length > 0 ? response.data.results[0] : null;
-    } catch (error) {
-        console.error("Error finding existing Notion page:", error.message);
-        throw error;
-    }
-}
-
-function createNotionPageData(issue, notionDatabaseId, isUpdate = false) {
-    const baseData = {
-        properties: {
-            Name: {
-                title: [
-                    {
-                        text: {
-                            content: issue.title || "Untitled Issue",
-                        },
-                    },
-                ],
-            },
-            ID: {
-                number: issue.id,
-            },
-            Number: {
-                number: issue.number,
-            },
-            State: {
-                select: {
-                    name: issue.state.charAt(0).toUpperCase() + issue.state.slice(1),
-                },
-            },
-            Labels: {
-                multi_select: (issue.labels || []).map(label => ({
-                    name: label.name,
-                })),
-            },
-            URL: {
-                url: issue.html_url,
-            },
-        },
-    };
-
-    // Add Status property only for new issues
-    if (!isUpdate) {
-        baseData.parent = { database_id: notionDatabaseId };
-        baseData.icon = {
-            emoji: "⚡",
-        };
-        baseData.properties.Status = {
-            status: {
-                name: "Not started",
-            },
-        };
-        // Add issue body as children blocks
-        if (issue.body) {
-            try {
-                baseData.children = markdownToBlocks(issue.body);
-            } catch (error) {
-                console.warn("Failed to convert markdown to blocks:", error.message);
-                baseData.children = [
-                    {
-                        object: "block",
-                        type: "paragraph",
-                        paragraph: {
-                            rich_text: [
-                                {
-                                    type: "text",
-                                    text: {
-                                        content: issue.body,
-                                    },
-                                },
-                            ],
-                        },
-                    },
-                ];
-            }
-        }
-    }
-
-    return baseData;
-}
-
-async function createNotionPage(pageData, notionToken) {
-    try {
-        const response = await axios.post("https://api.notion.com/v1/pages", pageData, {
-            headers: {
-                Authorization: `Bearer ${notionToken}`,
-                "Content-Type": "application/json",
-                "Notion-Version": "2022-06-28",
-            },
-        });
-
-        return response.data;
-    } catch (error) {
-        console.error("Error creating Notion page:", error.response?.data || error.message);
-        throw error;
-    }
-}
-
-async function updateNotionPage(pageId, pageData, notionToken) {
-    try {
-        const response = await axios.patch(
-            `https://api.notion.com/v1/pages/${pageId}`,
-            pageData,
-            {
-                headers: {
-                    Authorization: `Bearer ${notionToken}`,
-                    "Content-Type": "application/json",
-                    "Notion-Version": "2022-06-28",
-                },
-            }
-        );
-
-        return response.data;
-    } catch (error) {
-        console.error("Error updating Notion page:", error.response?.data || error.message);
-        throw error;
-    }
-}
-
-main().catch(error => {
-    console.error("Unhandled error:", error);
-    process.exit(1);
-});
-
-module.exports = __webpack_exports__;
+/******/ 	
+/******/ 	// startup
+/******/ 	// Load entry module and return exports
+/******/ 	// This entry module is referenced by other modules so it can't be inlined
+/******/ 	var __webpack_exports__ = __nccwpck_require__(9407);
+/******/ 	module.exports = __webpack_exports__;
+/******/ 	
 /******/ })()
 ;

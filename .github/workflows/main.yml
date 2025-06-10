@@ -1,4 +1,4 @@
-name: Sync Issues to Notion (By EM)
+name: Sync Issues to Notion
 
 on:
   issues:
@@ -11,15 +11,15 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-        
+
       - name: Use Node.js 20
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          
+
       - name: Install dependencies
         run: npm install
-        
+
       - name: Sync issues with Notion
         run: node index.js
         env:

@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "ncc build index.js -o dist"
+    "build": "ncc build src/index.ts -o dist"
   },
   "keywords": [
     "github",
@@ -20,6 +20,10 @@
     "dotenv": "^16.4.5"
   },
   "devDependencies": {
-    "@vercel/ncc": "^0.38.1"
+    "@types/node": "^22.15.29",
+    "@vercel/ncc": "^0.38.1",
+    "eslint": "^9.28.0",
+    "prettier": "^3.5.3",
+    "typescript": "^5.8.3"
   }
 }
