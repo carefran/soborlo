@@ -117,6 +117,15 @@ export async function getProjectStatus(
     }
 
     const projectItems = repository.issue.projectItems.nodes
+    
+    // 利用可能なプロジェクトをログ出力
+    console.log(`Available projects for issue #${issueNumber}:`, 
+      projectItems.map(item => ({ 
+        project: item.project?.title, 
+        status: item.fieldValueByName?.name 
+      }))
+    )
+    
     // "Troika"プロジェクトのStatusを取得
     const troikaItem = projectItems.find(item => item.project?.title === 'Troika')
     return troikaItem?.fieldValueByName?.name || null
