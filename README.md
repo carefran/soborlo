@@ -56,7 +56,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Sync to Notion
-        uses: Edit-Mr/GitHub-issue-2-Notion@main
+        uses: carefran/GitHub-issue-2-Notion@main
         with:
           repo: ${{ github.repository }}
           NOTION_API_KEY: ${{ secrets.NOTION_API_KEY }}
