@@ -142,7 +142,7 @@ async function reverseSyncNotionToGitHub(dryRun: boolean = false): Promise<void>
     const repo = core.getInput('repo') || process.env.GITHUB_REPOSITORY
     const notionToken = core.getInput('NOTION_API_KEY') || process.env.NOTION_API_KEY
     const notionDatabaseId = core.getInput('NOTION_DATABASE_ID') || process.env.NOTION_DATABASE_ID
-    const githubToken = core.getInput('GITHUB_TOKEN') || process.env.GITHUB_TOKEN
+    const githubToken = core.getInput('PROJECT_TOKEN') || core.getInput('GITHUB_TOKEN') || process.env.PROJECT_TOKEN || process.env.GITHUB_TOKEN
 
     if (!repo || !notionToken || !notionDatabaseId || !githubToken) {
       console.error('Missing required environment variables')
