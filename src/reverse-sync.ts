@@ -117,6 +117,8 @@ async function matchNotionWithGitHub(
       matchType: 'none'
     }
 
+    console.log(`\n🔍 Matching Notion page: "${notionTitle}"`)
+
     if (pbiId) {
       // PBI-IDでマッチング
       const matchedIssue = githubIssues.find(issue => {
@@ -136,14 +138,32 @@ async function matchNotionWithGitHub(
 
     if (!matchResult.githubIssue) {
       // タイトルでマッチング
+      const normalizedNotionTitle = normalizeTitle(notionTitle)
+      console.log(`   Normalized Notion title: "${normalizedNotionTitle}"`)
+      
+      // 候補を探す
+      const candidates = githubIssues.filter(issue => {
+        const normalizedGithubTitle = normalizeTitle(issue.title)
+        return normalizedGithubTitle.includes(normalizedNotionTitle) || 
+               normalizedNotionTitle.includes(normalizedGithubTitle)
+      })
+      
+      console.log(`   Found ${candidates.length} potential matches:`)
+      candidates.forEach(candidate => {
+        console.log(`     - #${candidate.number}: "${candidate.title}" (normalized: "${normalizeTitle(candidate.title)}")`)
+      })
+      
       const matchedIssue = matchByTitle(notionTitle, githubIssues)
       if (matchedIssue) {
+        console.log(`   ✅ Exact match found: #${matchedIssue.number}`)
         matchResult = {
           notionPage,
           githubIssue: matchedIssue,
           matchType: 'title',
-          matchedBy: normalizeTitle(notionTitle)
+          matchedBy: normalizedNotionTitle
         }
+      } else {
+        console.log(`   ❌ No exact match found`)
       }
     }
 
