@@ -42586,61 +42586,6 @@ function createNotionPageData(item, notionDatabaseId, isUpdate = false) {
             }
         }
     };
-    // 担当者とマイルストーンの追加
-    if (item.assignees && item.assignees.length > 0) {
-        baseData.properties.Assignees = {
-            multi_select: item.assignees.map(assignee => ({
-                name: assignee.login
-            }))
-        };
-    }
-    if (item.milestone) {
-        baseData.properties.Milestone = {
-            rich_text: [
-                {
-                    text: {
-                        content: item.milestone.title
-                    }
-                }
-            ]
-        };
-    }
-    // Pull Request専用プロパティの追加
-    if (isPR) {
-        baseData.properties.Draft = {
-            checkbox: item.draft
-        };
-        baseData.properties.Merged = {
-            checkbox: item.merged
-        };
-        baseData.properties['Base Branch'] = {
-            rich_text: [
-                {
-                    text: {
-                        content: item.base.ref
-                    }
-                }
-            ]
-        };
-        baseData.properties['Head Branch'] = {
-            rich_text: [
-                {
-                    text: {
-                        content: item.head.ref
-                    }
-                }
-            ]
-        };
-        baseData.properties.Additions = {
-            number: item.additions
-        };
-        baseData.properties.Deletions = {
-            number: item.deletions
-        };
-        baseData.properties['Changed Files'] = {
-            number: item.changed_files
-        };
-    }
     if (!isUpdate) {
         baseData.parent = { database_id: notionDatabaseId };
         baseData.icon = { emoji: isPR ? '🔀' : '⚡' };
