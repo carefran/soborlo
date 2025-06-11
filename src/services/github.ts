@@ -84,6 +84,8 @@ export async function getProjectStatus(
   `;
 
   try {
+    console.log(`Fetching project status for ${owner}/${repo}#${issueNumber}`)
+    
     const response = await axios.post<{
       data: {
         repository: {
@@ -97,6 +99,7 @@ export async function getProjectStatus(
           }
         }
       }
+      errors?: Array<{ message: string }>
     }>(
       'https://api.github.com/graphql',
       {
@@ -110,6 +113,15 @@ export async function getProjectStatus(
         }
       }
     )
+
+    // GraphQLエラーをチェック
+    if (response.data.errors) {
+      console.error('GraphQL errors:', response.data.errors)
+      return null
+    }
+
+    // レスポンス全体をログ出力
+    console.log(`GraphQL response for issue #${issueNumber}:`, JSON.stringify(response.data, null, 2))
 
     const repository = response.data.data?.repository
     if (!repository?.issue?.projectItems?.nodes) {

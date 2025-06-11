@@ -42411,6 +42411,7 @@ async function getProjectStatus(owner, repo, issueNumber, githubToken) {
     }
   `;
     try {
+        console.log(`Fetching project status for ${owner}/${repo}#${issueNumber}`);
         const response = await axios_1.default.post('https://api.github.com/graphql', {
             query,
             variables: { owner, repo, issueNumber }
@@ -42420,6 +42421,13 @@ async function getProjectStatus(owner, repo, issueNumber, githubToken) {
                 'Content-Type': 'application/json'
             }
         });
+        // GraphQLエラーをチェック
+        if (response.data.errors) {
+            console.error('GraphQL errors:', response.data.errors);
+            return null;
+        }
+        // レスポンス全体をログ出力
+        console.log(`GraphQL response for issue #${issueNumber}:`, JSON.stringify(response.data, null, 2));
         const repository = response.data.data?.repository;
         if (!repository?.issue?.projectItems?.nodes) {
             return null;
