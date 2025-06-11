@@ -1,7 +1,7 @@
 import axios from 'axios'
 import { GitHubIssue, GitHubPullRequest, GitHubItem } from '../types/github'
 
-export async function getIssues(repo: string, githubToken?: string): Promise<GitHubIssue[]> {
+export async function getIssues(repo: string, githubToken?: string, since?: string): Promise<GitHubIssue[]> {
   const headers: Record<string, string> = {
     'User-Agent': 'github-issue-2-notion'
   }
@@ -14,9 +14,12 @@ export async function getIssues(repo: string, githubToken?: string): Promise<Git
   let page = 1
   const perPage = 100
 
+  // since パラメータの構築
+  const sinceParam = since ? `&since=${encodeURIComponent(since)}` : ''
+
   while (true) {
     const response = await axios.get<GitHubIssue[]>(
-      `https://api.github.com/repos/${repo}/issues?state=all&page=${page}&per_page=${perPage}`,
+      `https://api.github.com/repos/${repo}/issues?state=all&page=${page}&per_page=${perPage}${sinceParam}`,
       { headers }
     )
 
@@ -42,7 +45,7 @@ export async function getIssues(repo: string, githubToken?: string): Promise<Git
   return allIssues
 }
 
-export async function getPullRequests(repo: string, githubToken?: string): Promise<GitHubPullRequest[]> {
+export async function getPullRequests(repo: string, githubToken?: string, since?: string): Promise<GitHubPullRequest[]> {
   const headers: Record<string, string> = {
     'User-Agent': 'github-issue-2-notion'
   }
@@ -55,6 +58,9 @@ export async function getPullRequests(repo: string, githubToken?: string): Promi
   let page = 1
   const perPage = 100
 
+  // Pull Requests APIではsinceパラメータは利用できないため、取得後にフィルタリング
+  const sinceDate = since ? new Date(since) : null
+
   while (true) {
     const response = await axios.get<GitHubPullRequest[]>(
       `https://api.github.com/repos/${repo}/pulls?state=all&page=${page}&per_page=${perPage}`,
@@ -65,9 +71,15 @@ export async function getPullRequests(repo: string, githubToken?: string): Promi
       break
     }
 
-    allPullRequests.push(...response.data)
+    // Pull Requests APIではsinceパラメータが使えないため、updated_atでフィルタリング
+    let filteredPRs = response.data
+    if (sinceDate) {
+      filteredPRs = response.data.filter(pr => new Date(pr.updated_at) >= sinceDate)
+    }
+    
+    allPullRequests.push(...filteredPRs)
 
-    console.log(`Fetched PR page ${page}: ${response.data.length} pull requests`)
+    console.log(`Fetched PR page ${page}: ${response.data.length} pull requests${sinceDate ? ` (${filteredPRs.length} after since filter)` : ''}`)
 
     // 最後のページの場合は終了
     if (response.data.length < perPage) {
@@ -84,17 +96,18 @@ export async function getPullRequests(repo: string, githubToken?: string): Promi
 export async function getIssuesAndPullRequests(
   repo: string,
   includePullRequests: boolean,
-  githubToken?: string
+  githubToken?: string,
+  since?: string
 ): Promise<GitHubItem[]> {
   const items: GitHubItem[] = []
 
   // 常にIssueを取得
-  const issues = await getIssues(repo, githubToken)
+  const issues = await getIssues(repo, githubToken, since)
   items.push(...issues)
 
   // オプションでPull Requestを取得
   if (includePullRequests) {
-    const pullRequests = await getPullRequests(repo, githubToken)
+    const pullRequests = await getPullRequests(repo, githubToken, since)
     items.push(...pullRequests)
   }
 

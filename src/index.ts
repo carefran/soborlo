@@ -20,8 +20,13 @@ async function main(): Promise<void> {
     console.log(`Syncing items from repository: ${repo}`)
     console.log(`Include Pull Requests: ${includePullRequests}`)
 
-    const items = await getIssuesAndPullRequests(repo, includePullRequests, githubToken)
-    console.log(`Found ${items.length} items to sync (Issues${includePullRequests ? ' and Pull Requests' : ''})`)
+    // 24時間前のISO文字列を生成
+    const since24h = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+    
+    console.log(`Fetching items updated since: ${since24h} (last 24 hours)`)
+    
+    const items = await getIssuesAndPullRequests(repo, includePullRequests, githubToken, since24h)
+    console.log(`Found ${items.length} items to sync (Issues${includePullRequests ? ' and Pull Requests' : ''} updated in last 24 hours)`)
 
     // リポジトリ名を分解
     const [owner, repoName] = repo.split('/')

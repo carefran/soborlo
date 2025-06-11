@@ -42273,8 +42273,11 @@ async function main() {
         const includePullRequests = core.getInput('include_pull_requests').toLowerCase() === 'true';
         console.log(`Syncing items from repository: ${repo}`);
         console.log(`Include Pull Requests: ${includePullRequests}`);
-        const items = await (0, github_1.getIssuesAndPullRequests)(repo, includePullRequests, githubToken);
-        console.log(`Found ${items.length} items to sync (Issues${includePullRequests ? ' and Pull Requests' : ''})`);
+        // 24時間前のISO文字列を生成
+        const since24h = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+        console.log(`Fetching items updated since: ${since24h} (last 24 hours)`);
+        const items = await (0, github_1.getIssuesAndPullRequests)(repo, includePullRequests, githubToken, since24h);
+        console.log(`Found ${items.length} items to sync (Issues${includePullRequests ? ' and Pull Requests' : ''} updated in last 24 hours)`);
         // リポジトリ名を分解
         const [owner, repoName] = repo.split('/');
         for (const item of items) {
@@ -42356,7 +42359,7 @@ exports.getIssueState = getIssueState;
 exports.getPullRequestDetails = getPullRequestDetails;
 exports.updateProjectStatus = updateProjectStatus;
 const axios_1 = __importDefault(__nccwpck_require__(7269));
-async function getIssues(repo, githubToken) {
+async function getIssues(repo, githubToken, since) {
     const headers = {
         'User-Agent': 'github-issue-2-notion'
     };
@@ -42366,8 +42369,10 @@ async function getIssues(repo, githubToken) {
     let allIssues = [];
     let page = 1;
     const perPage = 100;
+    // since パラメータの構築
+    const sinceParam = since ? `&since=${encodeURIComponent(since)}` : '';
     while (true) {
-        const response = await axios_1.default.get(`https://api.github.com/repos/${repo}/issues?state=all&page=${page}&per_page=${perPage}`, { headers });
+        const response = await axios_1.default.get(`https://api.github.com/repos/${repo}/issues?state=all&page=${page}&per_page=${perPage}${sinceParam}`, { headers });
         if (response.data.length === 0) {
             break;
         }
@@ -42384,7 +42389,7 @@ async function getIssues(repo, githubToken) {
     console.log(`Total issues fetched: ${allIssues.length}`);
     return allIssues;
 }
-async function getPullRequests(repo, githubToken) {
+async function getPullRequests(repo, githubToken, since) {
     const headers = {
         'User-Agent': 'github-issue-2-notion'
     };
@@ -42394,13 +42399,20 @@ async function getPullRequests(repo, githubToken) {
     let allPullRequests = [];
     let page = 1;
     const perPage = 100;
+    // Pull Requests APIではsinceパラメータは利用できないため、取得後にフィルタリング
+    const sinceDate = since ? new Date(since) : null;
     while (true) {
         const response = await axios_1.default.get(`https://api.github.com/repos/${repo}/pulls?state=all&page=${page}&per_page=${perPage}`, { headers });
         if (response.data.length === 0) {
             break;
         }
-        allPullRequests.push(...response.data);
-        console.log(`Fetched PR page ${page}: ${response.data.length} pull requests`);
+        // Pull Requests APIではsinceパラメータが使えないため、updated_atでフィルタリング
+        let filteredPRs = response.data;
+        if (sinceDate) {
+            filteredPRs = response.data.filter(pr => new Date(pr.updated_at) >= sinceDate);
+        }
+        allPullRequests.push(...filteredPRs);
+        console.log(`Fetched PR page ${page}: ${response.data.length} pull requests${sinceDate ? ` (${filteredPRs.length} after since filter)` : ''}`);
         // 最後のページの場合は終了
         if (response.data.length < perPage) {
             break;
@@ -42410,14 +42422,14 @@ async function getPullRequests(repo, githubToken) {
     console.log(`Total pull requests fetched: ${allPullRequests.length}`);
     return allPullRequests;
 }
-async function getIssuesAndPullRequests(repo, includePullRequests, githubToken) {
+async function getIssuesAndPullRequests(repo, includePullRequests, githubToken, since) {
     const items = [];
     // 常にIssueを取得
-    const issues = await getIssues(repo, githubToken);
+    const issues = await getIssues(repo, githubToken, since);
     items.push(...issues);
     // オプションでPull Requestを取得
     if (includePullRequests) {
-        const pullRequests = await getPullRequests(repo, githubToken);
+        const pullRequests = await getPullRequests(repo, githubToken, since);
         items.push(...pullRequests);
     }
     return items;
