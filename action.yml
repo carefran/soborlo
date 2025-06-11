@@ -17,6 +17,9 @@ inputs:
   GITHUB_TOKEN:
     description: "GitHub token for accessing repositories and GitHub Projects status (recommended for full functionality)"
     required: false
+  PROJECT_TOKEN:
+    description: "Personal Access Token with project permissions (alternative to GITHUB_TOKEN)"
+    required: false
   include_pull_requests:
     description: "Whether to include Pull Requests in sync (true/false)"
     required: false

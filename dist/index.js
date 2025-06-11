@@ -42269,7 +42269,7 @@ async function main() {
         const repo = core.getInput('repo');
         const notionToken = core.getInput('NOTION_API_KEY');
         const notionDatabaseId = core.getInput('NOTION_DATABASE_ID');
-        const githubToken = core.getInput('GITHUB_TOKEN');
+        const githubToken = core.getInput('GITHUB_TOKEN') || core.getInput('PROJECT_TOKEN');
         const includePullRequests = core.getInput('include_pull_requests').toLowerCase() === 'true';
         console.log(`Syncing items from repository: ${repo}`);
         console.log(`Include Pull Requests: ${includePullRequests}`);
