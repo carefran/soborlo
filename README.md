@@ -47,8 +47,8 @@ name: Sync Issues to Notion
 on:
   issues:
     types: [opened, edited, deleted, reopened, closed]
-  project_v2_item:
-    types: [created, edited, deleted]
+  schedule:
+    - cron: '0 23 * * 0-4'  # 平日JST8時 (UTC前日23時)
   workflow_dispatch:
 
 jobs:
@@ -86,7 +86,7 @@ Add these secrets to your repository settings:
 
 The action is triggered by:
 - **Issue events**: opened, edited, deleted, reopened, closed
-- **Project events**: project_v2_item created, edited, deleted ✨ **NEW**
+- **Scheduled sync**: Weekdays at 8:00 AM JST for Projects status updates
 - **Manual trigger**: workflow_dispatch
 
 ## 🛣️ Roadmap

@@ -42363,9 +42363,26 @@ async function getIssues(repo, githubToken) {
     if (githubToken) {
         headers.Authorization = `Bearer ${githubToken}`;
     }
-    const response = await axios_1.default.get(`https://api.github.com/repos/${repo}/issues?state=all`, { headers });
-    // Pull Requestを除外（GitHub APIではPRもissuesに含まれる）
-    return response.data.filter(issue => !('pull_request' in issue));
+    let allIssues = [];
+    let page = 1;
+    const perPage = 100;
+    while (true) {
+        const response = await axios_1.default.get(`https://api.github.com/repos/${repo}/issues?state=all&page=${page}&per_page=${perPage}`, { headers });
+        if (response.data.length === 0) {
+            break;
+        }
+        // Pull Requestを除外（GitHub APIではPRもissuesに含まれる）
+        const issues = response.data.filter(issue => !('pull_request' in issue));
+        allIssues.push(...issues);
+        console.log(`Fetched page ${page}: ${response.data.length} items (${issues.length} issues after filtering PRs)`);
+        // 最後のページの場合は終了
+        if (response.data.length < perPage) {
+            break;
+        }
+        page++;
+    }
+    console.log(`Total issues fetched: ${allIssues.length}`);
+    return allIssues;
 }
 async function getPullRequests(repo, githubToken) {
     const headers = {
@@ -42374,8 +42391,24 @@ async function getPullRequests(repo, githubToken) {
     if (githubToken) {
         headers.Authorization = `Bearer ${githubToken}`;
     }
-    const response = await axios_1.default.get(`https://api.github.com/repos/${repo}/pulls?state=all`, { headers });
-    return response.data;
+    let allPullRequests = [];
+    let page = 1;
+    const perPage = 100;
+    while (true) {
+        const response = await axios_1.default.get(`https://api.github.com/repos/${repo}/pulls?state=all&page=${page}&per_page=${perPage}`, { headers });
+        if (response.data.length === 0) {
+            break;
+        }
+        allPullRequests.push(...response.data);
+        console.log(`Fetched PR page ${page}: ${response.data.length} pull requests`);
+        // 最後のページの場合は終了
+        if (response.data.length < perPage) {
+            break;
+        }
+        page++;
+    }
+    console.log(`Total pull requests fetched: ${allPullRequests.length}`);
+    return allPullRequests;
 }
 async function getIssuesAndPullRequests(repo, includePullRequests, githubToken) {
     const items = [];

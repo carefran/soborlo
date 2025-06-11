@@ -10,13 +10,36 @@ export async function getIssues(repo: string, githubToken?: string): Promise<Git
     headers.Authorization = `Bearer ${githubToken}`
   }
 
-  const response = await axios.get<GitHubIssue[]>(
-    `https://api.github.com/repos/${repo}/issues?state=all`,
-    { headers }
-  )
+  let allIssues: GitHubIssue[] = []
+  let page = 1
+  const perPage = 100
 
-  // Pull Requestを除外（GitHub APIではPRもissuesに含まれる）
-  return response.data.filter(issue => !('pull_request' in issue))
+  while (true) {
+    const response = await axios.get<GitHubIssue[]>(
+      `https://api.github.com/repos/${repo}/issues?state=all&page=${page}&per_page=${perPage}`,
+      { headers }
+    )
+
+    if (response.data.length === 0) {
+      break
+    }
+
+    // Pull Requestを除外（GitHub APIではPRもissuesに含まれる）
+    const issues = response.data.filter(issue => !('pull_request' in issue))
+    allIssues.push(...issues)
+
+    console.log(`Fetched page ${page}: ${response.data.length} items (${issues.length} issues after filtering PRs)`)
+
+    // 最後のページの場合は終了
+    if (response.data.length < perPage) {
+      break
+    }
+
+    page++
+  }
+
+  console.log(`Total issues fetched: ${allIssues.length}`)
+  return allIssues
 }
 
 export async function getPullRequests(repo: string, githubToken?: string): Promise<GitHubPullRequest[]> {
@@ -28,12 +51,34 @@ export async function getPullRequests(repo: string, githubToken?: string): Promi
     headers.Authorization = `Bearer ${githubToken}`
   }
 
-  const response = await axios.get<GitHubPullRequest[]>(
-    `https://api.github.com/repos/${repo}/pulls?state=all`,
-    { headers }
-  )
+  let allPullRequests: GitHubPullRequest[] = []
+  let page = 1
+  const perPage = 100
 
-  return response.data
+  while (true) {
+    const response = await axios.get<GitHubPullRequest[]>(
+      `https://api.github.com/repos/${repo}/pulls?state=all&page=${page}&per_page=${perPage}`,
+      { headers }
+    )
+
+    if (response.data.length === 0) {
+      break
+    }
+
+    allPullRequests.push(...response.data)
+
+    console.log(`Fetched PR page ${page}: ${response.data.length} pull requests`)
+
+    // 最後のページの場合は終了
+    if (response.data.length < perPage) {
+      break
+    }
+
+    page++
+  }
+
+  console.log(`Total pull requests fetched: ${allPullRequests.length}`)
+  return allPullRequests
 }
 
 export async function getIssuesAndPullRequests(
