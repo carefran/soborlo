@@ -41,7 +41,7 @@ interface MatchResult {
   matchedBy?: string
 }
 
-async function getNotionPagesExceptNotStarted(
+async function getNotionPagesForReverseSync(
   notionToken: string,
   notionDatabaseId: string
 ): Promise<NotionPageWithDetails[]> {
@@ -49,10 +49,20 @@ async function getNotionPagesExceptNotStarted(
     `https://api.notion.com/v1/databases/${notionDatabaseId}/query`,
     {
       filter: {
-        property: 'Status',
-        status: {
-          does_not_equal: 'Not started'
-        }
+        and: [
+          {
+            property: 'Status',
+            status: {
+              does_not_equal: 'Not started'
+            }
+          },
+          {
+            property: 'Status',
+            status: {
+              does_not_equal: '完了'
+            }
+          }
+        ]
       }
     },
     {
@@ -153,11 +163,11 @@ async function reverseSyncNotionToGitHub(dryRun: boolean = false): Promise<void>
       console.log(`🧪 DRY RUN MODE - No actual changes will be made`)
     }
     console.log(`Starting reverse sync for repository: ${repo}`)
-    console.log(`🎯 Goal: Sync Notion pages (except "Not started") with GitHub Projects status`)
+    console.log(`🎯 Goal: Sync Notion pages (except "Not started" and "完了") with GitHub Projects status`)
 
-    // NotionからNot Started以外のページを取得
-    const notionPages = await getNotionPagesExceptNotStarted(notionToken, notionDatabaseId)
-    console.log(`Found ${notionPages.length} Notion pages to sync`)
+    // NotionからNot Started・完了以外のページを取得
+    const notionPages = await getNotionPagesForReverseSync(notionToken, notionDatabaseId)
+    console.log(`Found ${notionPages.length} Notion pages to sync (excluding "Not started" and "完了")`)
 
     // GitHub Issuesを取得
     const githubIssues = await getIssues(repo, githubToken)
