@@ -61,6 +61,12 @@ async function getNotionPagesForReverseSync(
             status: {
               does_not_equal: '完了'
             }
+          },
+          {
+            property: 'Status',
+            status: {
+              does_not_equal: '無効'
+            }
           }
         ]
       }
@@ -163,11 +169,11 @@ async function reverseSyncNotionToGitHub(dryRun: boolean = false): Promise<void>
       console.log(`🧪 DRY RUN MODE - No actual changes will be made`)
     }
     console.log(`Starting reverse sync for repository: ${repo}`)
-    console.log(`🎯 Goal: Sync Notion pages (except "Not started" and "完了") with GitHub Projects status`)
+    console.log(`🎯 Goal: Sync Notion pages (except "Not started", "完了", and "無効") with GitHub Projects status`)
 
-    // NotionからNot Started・完了以外のページを取得
+    // NotionからNot Started・完了・無効以外のページを取得
     const notionPages = await getNotionPagesForReverseSync(notionToken, notionDatabaseId)
-    console.log(`Found ${notionPages.length} Notion pages to sync (excluding "Not started" and "完了")`)
+    console.log(`Found ${notionPages.length} Notion pages to sync (excluding "Not started", "完了", and "無効")`)
 
     // GitHub Issuesを取得
     const githubIssues = await getIssues(repo, githubToken)
