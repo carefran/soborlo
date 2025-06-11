@@ -111,12 +111,77 @@ export async function getProjectStatus(
       }
     )
 
-    const projectItems = response.data.data.repository.issue.projectItems.nodes
+    const repository = response.data.data?.repository
+    if (!repository?.issue?.projectItems?.nodes) {
+      return null
+    }
+
+    const projectItems = repository.issue.projectItems.nodes
     // "Troika"プロジェクトのStatusを取得
-    const troikaItem = projectItems.find(item => item.project.title === 'Troika')
+    const troikaItem = projectItems.find(item => item.project?.title === 'Troika')
     return troikaItem?.fieldValueByName?.name || null
   } catch (error) {
     console.error('Error fetching project status:', error)
+    return null
+  }
+}
+
+export async function getIssueState(
+  owner: string,
+  repo: string,
+  issueNumber: number,
+  githubToken?: string
+): Promise<string | null> {
+  const headers: Record<string, string> = {
+    'User-Agent': 'github-issue-2-notion'
+  }
+
+  if (githubToken) {
+    headers.Authorization = `Bearer ${githubToken}`
+  }
+
+  try {
+    const response = await axios.get<{ state: string }>(
+      `https://api.github.com/repos/${owner}/${repo}/issues/${issueNumber}`,
+      { headers }
+    )
+    return response.data.state
+  } catch (error) {
+    console.error(`Error fetching issue state for #${issueNumber}:`, error)
+    return null
+  }
+}
+
+export async function getPullRequestDetails(
+  owner: string,
+  repo: string,
+  prNumber: number,
+  githubToken?: string
+): Promise<{ state: string; merged: boolean; draft: boolean } | null> {
+  const headers: Record<string, string> = {
+    'User-Agent': 'github-issue-2-notion'
+  }
+
+  if (githubToken) {
+    headers.Authorization = `Bearer ${githubToken}`
+  }
+
+  try {
+    const response = await axios.get<{ 
+      state: string;
+      merged: boolean;
+      draft: boolean;
+    }>(
+      `https://api.github.com/repos/${owner}/${repo}/pulls/${prNumber}`,
+      { headers }
+    )
+    return {
+      state: response.data.state,
+      merged: response.data.merged,
+      draft: response.data.draft
+    }
+  } catch (error) {
+    console.error(`Error fetching PR details for #${prNumber}:`, error)
     return null
   }
 }
