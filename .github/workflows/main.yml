@@ -3,6 +3,8 @@ name: Sync Issues to Notion
 on:
   issues:
     types: [opened, edited, deleted, reopened, closed]
+  project_v2_item:
+    types: [created, edited, deleted]
   workflow_dispatch:
 
 jobs:

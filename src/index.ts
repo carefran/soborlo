@@ -1,10 +1,12 @@
 import * as core from '@actions/core'
-import { getIssuesAndPullRequests } from './services/github'
+import { getIssuesAndPullRequests, getProjectStatus } from './services/github'
 import {
   findExistingNotionPage,
   createNotionPageData,
   createNotionPage,
-  updateNotionPage
+  updateNotionPage,
+  updateNotionPageStatus,
+  mapGitHubStatusToNotion
 } from './services/notion'
 
 async function main(): Promise<void> {
@@ -21,6 +23,9 @@ async function main(): Promise<void> {
     const items = await getIssuesAndPullRequests(repo, includePullRequests, githubToken)
     console.log(`Found ${items.length} items to sync (Issues${includePullRequests ? ' and Pull Requests' : ''})`)
 
+    // リポジトリ名を分解
+    const [owner, repoName] = repo.split('/')
+
     for (const item of items) {
       try {
         const existingPage = await findExistingNotionPage(
@@ -35,9 +40,37 @@ async function main(): Promise<void> {
         if (existingPage) {
           console.log(`${itemType} #${item.number} already exists in Notion, updating it`)
           await updateNotionPage(existingPage.id, pageData, notionToken)
+          
+          // GitHub ProjectsのStatusを取得してNotionに反映
+          if (githubToken) {
+            console.log(`Checking GitHub Projects status for ${itemType} #${item.number}`)
+            const githubStatus = await getProjectStatus(owner, repoName, item.number, githubToken)
+            
+            if (githubStatus) {
+              const notionStatus = mapGitHubStatusToNotion(githubStatus)
+              console.log(`GitHub Projects status: ${githubStatus} → Notion status: ${notionStatus}`)
+              await updateNotionPageStatus(existingPage.id, notionStatus, notionToken)
+            } else {
+              console.log(`No GitHub Projects status found for ${itemType} #${item.number}`)
+            }
+          } else {
+            console.log('GitHub token not provided, skipping Projects status sync')
+          }
         } else {
           console.log(`Creating new ${itemType} #${item.number} in Notion`)
-          await createNotionPage(pageData, notionToken)
+          const newPage = await createNotionPage(pageData, notionToken)
+          
+          // 新規作成時もGitHub ProjectsのStatusを確認
+          if (githubToken) {
+            console.log(`Checking GitHub Projects status for new ${itemType} #${item.number}`)
+            const githubStatus = await getProjectStatus(owner, repoName, item.number, githubToken)
+            
+            if (githubStatus) {
+              const notionStatus = mapGitHubStatusToNotion(githubStatus)
+              console.log(`GitHub Projects status: ${githubStatus} → Notion status: ${notionStatus}`)
+              await updateNotionPageStatus(newPage.id, notionStatus, notionToken)
+            }
+          }
         }
 
         console.log(`${itemType} #${item.number} synced successfully`)
@@ -52,7 +85,7 @@ async function main(): Promise<void> {
 
     console.log('Sync completed successfully')
   } catch (error) {
-    console.error('Main process failed:', error instanceof Error ? error.message : String(error))
+    console.error('Error in main:', error instanceof Error ? error.message : String(error))
     process.exit(1)
   }
 }

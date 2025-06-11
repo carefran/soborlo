@@ -42275,6 +42275,8 @@ async function main() {
         console.log(`Include Pull Requests: ${includePullRequests}`);
         const items = await (0, github_1.getIssuesAndPullRequests)(repo, includePullRequests, githubToken);
         console.log(`Found ${items.length} items to sync (Issues${includePullRequests ? ' and Pull Requests' : ''})`);
+        // リポジトリ名を分解
+        const [owner, repoName] = repo.split('/');
         for (const item of items) {
             try {
                 const existingPage = await (0, notion_1.findExistingNotionPage)(item.id, notionToken, notionDatabaseId);
@@ -42283,10 +42285,36 @@ async function main() {
                 if (existingPage) {
                     console.log(`${itemType} #${item.number} already exists in Notion, updating it`);
                     await (0, notion_1.updateNotionPage)(existingPage.id, pageData, notionToken);
+                    // GitHub ProjectsのStatusを取得してNotionに反映
+                    if (githubToken) {
+                        console.log(`Checking GitHub Projects status for ${itemType} #${item.number}`);
+                        const githubStatus = await (0, github_1.getProjectStatus)(owner, repoName, item.number, githubToken);
+                        if (githubStatus) {
+                            const notionStatus = (0, notion_1.mapGitHubStatusToNotion)(githubStatus);
+                            console.log(`GitHub Projects status: ${githubStatus} → Notion status: ${notionStatus}`);
+                            await (0, notion_1.updateNotionPageStatus)(existingPage.id, notionStatus, notionToken);
+                        }
+                        else {
+                            console.log(`No GitHub Projects status found for ${itemType} #${item.number}`);
+                        }
+                    }
+                    else {
+                        console.log('GitHub token not provided, skipping Projects status sync');
+                    }
                 }
                 else {
                     console.log(`Creating new ${itemType} #${item.number} in Notion`);
-                    await (0, notion_1.createNotionPage)(pageData, notionToken);
+                    const newPage = await (0, notion_1.createNotionPage)(pageData, notionToken);
+                    // 新規作成時もGitHub ProjectsのStatusを確認
+                    if (githubToken) {
+                        console.log(`Checking GitHub Projects status for new ${itemType} #${item.number}`);
+                        const githubStatus = await (0, github_1.getProjectStatus)(owner, repoName, item.number, githubToken);
+                        if (githubStatus) {
+                            const notionStatus = (0, notion_1.mapGitHubStatusToNotion)(githubStatus);
+                            console.log(`GitHub Projects status: ${githubStatus} → Notion status: ${notionStatus}`);
+                            await (0, notion_1.updateNotionPageStatus)(newPage.id, notionStatus, notionToken);
+                        }
+                    }
                 }
                 console.log(`${itemType} #${item.number} synced successfully`);
             }
@@ -42298,7 +42326,7 @@ async function main() {
         console.log('Sync completed successfully');
     }
     catch (error) {
-        console.error('Main process failed:', error instanceof Error ? error.message : String(error));
+        console.error('Error in main:', error instanceof Error ? error.message : String(error));
         process.exit(1);
     }
 }
@@ -42322,6 +42350,8 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.getIssues = getIssues;
 exports.getPullRequests = getPullRequests;
 exports.getIssuesAndPullRequests = getIssuesAndPullRequests;
+exports.getProjectStatus = getProjectStatus;
+exports.updateProjectStatus = updateProjectStatus;
 const axios_1 = __importDefault(__nccwpck_require__(7269));
 async function getIssues(repo, githubToken) {
     const headers = {
@@ -42356,6 +42386,53 @@ async function getIssuesAndPullRequests(repo, includePullRequests, githubToken) 
     }
     return items;
 }
+async function getProjectStatus(owner, repo, issueNumber, githubToken) {
+    const query = `
+    query($owner: String!, $repo: String!, $issueNumber: Int!) {
+      repository(owner: $owner, name: $repo) {
+        issue(number: $issueNumber) {
+          projectItems(first: 10) {
+            nodes {
+              project {
+                title
+              }
+              fieldValueByName(name: "Status") {
+                ... on ProjectV2ItemFieldSingleSelectValue {
+                  name
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  `;
+    try {
+        const response = await axios_1.default.post('https://api.github.com/graphql', {
+            query,
+            variables: { owner, repo, issueNumber }
+        }, {
+            headers: {
+                Authorization: `Bearer ${githubToken}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        const projectItems = response.data.data.repository.issue.projectItems.nodes;
+        // "Troika"プロジェクトのStatusを取得
+        const troikaItem = projectItems.find(item => item.project.title === 'Troika');
+        return troikaItem?.fieldValueByName?.name || null;
+    }
+    catch (error) {
+        console.error('Error fetching project status:', error);
+        return null;
+    }
+}
+async function updateProjectStatus(owner, repo, issueNumber, statusName, githubToken) {
+    // GitHub Projects v2 APIでのStatus更新実装
+    // 注: 実装には追加のGraphQL操作が必要
+    console.log(`Would update ${owner}/${repo}#${issueNumber} to status: ${statusName}`);
+    return true;
+}
 
 
 /***/ }),
@@ -42373,6 +42450,8 @@ exports.findExistingNotionPage = findExistingNotionPage;
 exports.createNotionPageData = createNotionPageData;
 exports.createNotionPage = createNotionPage;
 exports.updateNotionPage = updateNotionPage;
+exports.updateNotionPageStatus = updateNotionPageStatus;
+exports.mapGitHubStatusToNotion = mapGitHubStatusToNotion;
 const axios_1 = __importDefault(__nccwpck_require__(7269));
 const martian_1 = __nccwpck_require__(7841);
 async function findExistingNotionPage(itemId, notionToken, notionDatabaseId) {
@@ -42542,6 +42621,42 @@ async function updateNotionPage(pageId, pageData, notionToken) {
         }
     });
     return response.data;
+}
+async function updateNotionPageStatus(pageId, statusName, notionToken) {
+    try {
+        await axios_1.default.patch(`https://api.notion.com/v1/pages/${pageId}`, {
+            properties: {
+                Status: {
+                    status: {
+                        name: statusName
+                    }
+                }
+            }
+        }, {
+            headers: {
+                Authorization: `Bearer ${notionToken}`,
+                'Content-Type': 'application/json',
+                'Notion-Version': '2022-06-28'
+            }
+        });
+        console.log(`Updated Notion page ${pageId} status to: ${statusName}`);
+    }
+    catch (error) {
+        console.error('Error updating Notion page status:', error);
+        throw error;
+    }
+}
+// GitHub ProjectsとNotionのStatus名をマッピング
+function mapGitHubStatusToNotion(githubStatus) {
+    const statusMap = {
+        'お手すきに': 'お手すきに',
+        'Backlog': 'Backlog',
+        '今週やる': '今週やる',
+        '着手中': '着手中',
+        '相談中': '相談中',
+        '完了': '完了'
+    };
+    return statusMap[githubStatus] || 'Not started';
 }
 
 

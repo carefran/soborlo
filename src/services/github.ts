@@ -54,4 +54,82 @@ export async function getIssuesAndPullRequests(
   }
 
   return items
+}
+
+export async function getProjectStatus(
+  owner: string,
+  repo: string,
+  issueNumber: number,
+  githubToken: string
+): Promise<string | null> {
+  const query = `
+    query($owner: String!, $repo: String!, $issueNumber: Int!) {
+      repository(owner: $owner, name: $repo) {
+        issue(number: $issueNumber) {
+          projectItems(first: 10) {
+            nodes {
+              project {
+                title
+              }
+              fieldValueByName(name: "Status") {
+                ... on ProjectV2ItemFieldSingleSelectValue {
+                  name
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  `;
+
+  try {
+    const response = await axios.post<{
+      data: {
+        repository: {
+          issue: {
+            projectItems: {
+              nodes: Array<{
+                project: { title: string }
+                fieldValueByName: { name: string } | null
+              }>
+            }
+          }
+        }
+      }
+    }>(
+      'https://api.github.com/graphql',
+      {
+        query,
+        variables: { owner, repo, issueNumber }
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${githubToken}`,
+          'Content-Type': 'application/json'
+        }
+      }
+    )
+
+    const projectItems = response.data.data.repository.issue.projectItems.nodes
+    // "Troika"プロジェクトのStatusを取得
+    const troikaItem = projectItems.find(item => item.project.title === 'Troika')
+    return troikaItem?.fieldValueByName?.name || null
+  } catch (error) {
+    console.error('Error fetching project status:', error)
+    return null
+  }
+}
+
+export async function updateProjectStatus(
+  owner: string,
+  repo: string,
+  issueNumber: number,
+  statusName: string,
+  githubToken: string
+): Promise<boolean> {
+  // GitHub Projects v2 APIでのStatus更新実装
+  // 注: 実装には追加のGraphQL操作が必要
+  console.log(`Would update ${owner}/${repo}#${issueNumber} to status: ${statusName}`)
+  return true
 } 

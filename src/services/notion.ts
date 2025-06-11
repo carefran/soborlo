@@ -210,4 +210,50 @@ export async function updateNotionPage(
   )
 
   return response.data
+}
+
+export async function updateNotionPageStatus(
+  pageId: string,
+  statusName: string,
+  notionToken: string
+): Promise<void> {
+  try {
+    await axios.patch(
+      `https://api.notion.com/v1/pages/${pageId}`,
+      {
+        properties: {
+          Status: {
+            status: {
+              name: statusName
+            }
+          }
+        }
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${notionToken}`,
+          'Content-Type': 'application/json',
+          'Notion-Version': '2022-06-28'
+        }
+      }
+    )
+    console.log(`Updated Notion page ${pageId} status to: ${statusName}`)
+  } catch (error) {
+    console.error('Error updating Notion page status:', error)
+    throw error
+  }
+}
+
+// GitHub ProjectsとNotionのStatus名をマッピング
+export function mapGitHubStatusToNotion(githubStatus: string): string {
+  const statusMap: Record<string, string> = {
+    'お手すきに': 'お手すきに',
+    'Backlog': 'Backlog', 
+    '今週やる': '今週やる',
+    '着手中': '着手中',
+    '相談中': '相談中',
+    '完了': '完了'
+  }
+  
+  return statusMap[githubStatus] || 'Not started'
 } 

@@ -15,7 +15,7 @@ inputs:
     description: "The ID of the Notion database."
     required: true
   GITHUB_TOKEN:
-    description: "GitHub token for accessing private repositories (optional)"
+    description: "GitHub token for accessing repositories and GitHub Projects status (recommended for full functionality)"
     required: false
   include_pull_requests:
     description: "Whether to include Pull Requests in sync (true/false)"
