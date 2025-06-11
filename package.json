@@ -5,7 +5,9 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "ncc build src/index.ts -o dist"
+    "build": "ncc build src/index.ts -o dist",
+    "reverse-sync": "npx ts-node src/reverse-sync.ts",
+    "reverse-sync:dry": "npx ts-node src/reverse-sync.ts --dry-run"
   },
   "keywords": [
     "github",
@@ -24,6 +26,7 @@
     "@vercel/ncc": "^0.38.1",
     "eslint": "^9.28.0",
     "prettier": "^3.5.3",
+    "ts-node": "^10.9.2",
     "typescript": "^5.8.3"
   }
 }

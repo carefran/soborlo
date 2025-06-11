@@ -177,19 +177,27 @@ export async function createNotionPage(
   pageData: NotionPageData,
   notionToken: string
 ): Promise<NotionPage> {
-  const response = await axios.post<NotionPage>(
-    'https://api.notion.com/v1/pages',
-    pageData,
-    {
-      headers: {
-        Authorization: `Bearer ${notionToken}`,
-        'Content-Type': 'application/json',
-        'Notion-Version': '2022-06-28'
+  try {
+    const response = await axios.post<NotionPage>(
+      'https://api.notion.com/v1/pages',
+      pageData,
+      {
+        headers: {
+          Authorization: `Bearer ${notionToken}`,
+          'Content-Type': 'application/json',
+          'Notion-Version': '2022-06-28'
+        }
       }
-    }
-  )
+    )
 
-  return response.data
+    return response.data
+  } catch (error) {
+    if (axios.isAxiosError(error) && error.response) {
+      console.error('Notion API Error:', error.response.status, error.response.data)
+      console.error('Request data:', JSON.stringify(pageData, null, 2))
+    }
+    throw error
+  }
 }
 
 export async function updateNotionPage(
@@ -197,19 +205,27 @@ export async function updateNotionPage(
   pageData: NotionPageData,
   notionToken: string
 ): Promise<NotionPage> {
-  const response = await axios.patch<NotionPage>(
-    `https://api.notion.com/v1/pages/${pageId}`,
-    pageData,
-    {
-      headers: {
-        Authorization: `Bearer ${notionToken}`,
-        'Content-Type': 'application/json',
-        'Notion-Version': '2022-06-28'
+  try {
+    const response = await axios.patch<NotionPage>(
+      `https://api.notion.com/v1/pages/${pageId}`,
+      pageData,
+      {
+        headers: {
+          Authorization: `Bearer ${notionToken}`,
+          'Content-Type': 'application/json',
+          'Notion-Version': '2022-06-28'
+        }
       }
-    }
-  )
+    )
 
-  return response.data
+    return response.data
+  } catch (error) {
+    if (axios.isAxiosError(error) && error.response) {
+      console.error('Notion API Error (update):', error.response.status, error.response.data)
+      console.error('Request data:', JSON.stringify(pageData, null, 2))
+    }
+    throw error
+  }
 }
 
 export async function updateNotionPageStatus(

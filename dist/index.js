@@ -42304,6 +42304,7 @@ async function main() {
                 }
                 else {
                     console.log(`Creating new ${itemType} #${item.number} in Notion`);
+                    console.log(`Page data properties:`, Object.keys(pageData.properties));
                     const newPage = await (0, notion_1.createNotionPage)(pageData, notionToken);
                     // 新規作成時もGitHub ProjectsのStatusを確認
                     if (githubToken) {
@@ -42351,6 +42352,8 @@ exports.getIssues = getIssues;
 exports.getPullRequests = getPullRequests;
 exports.getIssuesAndPullRequests = getIssuesAndPullRequests;
 exports.getProjectStatus = getProjectStatus;
+exports.getIssueState = getIssueState;
+exports.getPullRequestDetails = getPullRequestDetails;
 exports.updateProjectStatus = updateProjectStatus;
 const axios_1 = __importDefault(__nccwpck_require__(7269));
 async function getIssues(repo, githubToken) {
@@ -42417,13 +42420,53 @@ async function getProjectStatus(owner, repo, issueNumber, githubToken) {
                 'Content-Type': 'application/json'
             }
         });
-        const projectItems = response.data.data.repository.issue.projectItems.nodes;
+        const repository = response.data.data?.repository;
+        if (!repository?.issue?.projectItems?.nodes) {
+            return null;
+        }
+        const projectItems = repository.issue.projectItems.nodes;
         // "Troika"プロジェクトのStatusを取得
-        const troikaItem = projectItems.find(item => item.project.title === 'Troika');
+        const troikaItem = projectItems.find(item => item.project?.title === 'Troika');
         return troikaItem?.fieldValueByName?.name || null;
     }
     catch (error) {
         console.error('Error fetching project status:', error);
+        return null;
+    }
+}
+async function getIssueState(owner, repo, issueNumber, githubToken) {
+    const headers = {
+        'User-Agent': 'github-issue-2-notion'
+    };
+    if (githubToken) {
+        headers.Authorization = `Bearer ${githubToken}`;
+    }
+    try {
+        const response = await axios_1.default.get(`https://api.github.com/repos/${owner}/${repo}/issues/${issueNumber}`, { headers });
+        return response.data.state;
+    }
+    catch (error) {
+        console.error(`Error fetching issue state for #${issueNumber}:`, error);
+        return null;
+    }
+}
+async function getPullRequestDetails(owner, repo, prNumber, githubToken) {
+    const headers = {
+        'User-Agent': 'github-issue-2-notion'
+    };
+    if (githubToken) {
+        headers.Authorization = `Bearer ${githubToken}`;
+    }
+    try {
+        const response = await axios_1.default.get(`https://api.github.com/repos/${owner}/${repo}/pulls/${prNumber}`, { headers });
+        return {
+            state: response.data.state,
+            merged: response.data.merged,
+            draft: response.data.draft
+        };
+    }
+    catch (error) {
+        console.error(`Error fetching PR details for #${prNumber}:`, error);
         return null;
     }
 }
@@ -42603,24 +42646,42 @@ function createNotionPageData(item, notionDatabaseId, isUpdate = false) {
     return baseData;
 }
 async function createNotionPage(pageData, notionToken) {
-    const response = await axios_1.default.post('https://api.notion.com/v1/pages', pageData, {
-        headers: {
-            Authorization: `Bearer ${notionToken}`,
-            'Content-Type': 'application/json',
-            'Notion-Version': '2022-06-28'
+    try {
+        const response = await axios_1.default.post('https://api.notion.com/v1/pages', pageData, {
+            headers: {
+                Authorization: `Bearer ${notionToken}`,
+                'Content-Type': 'application/json',
+                'Notion-Version': '2022-06-28'
+            }
+        });
+        return response.data;
+    }
+    catch (error) {
+        if (axios_1.default.isAxiosError(error) && error.response) {
+            console.error('Notion API Error:', error.response.status, error.response.data);
+            console.error('Request data:', JSON.stringify(pageData, null, 2));
         }
-    });
-    return response.data;
+        throw error;
+    }
 }
 async function updateNotionPage(pageId, pageData, notionToken) {
-    const response = await axios_1.default.patch(`https://api.notion.com/v1/pages/${pageId}`, pageData, {
-        headers: {
-            Authorization: `Bearer ${notionToken}`,
-            'Content-Type': 'application/json',
-            'Notion-Version': '2022-06-28'
+    try {
+        const response = await axios_1.default.patch(`https://api.notion.com/v1/pages/${pageId}`, pageData, {
+            headers: {
+                Authorization: `Bearer ${notionToken}`,
+                'Content-Type': 'application/json',
+                'Notion-Version': '2022-06-28'
+            }
+        });
+        return response.data;
+    }
+    catch (error) {
+        if (axios_1.default.isAxiosError(error) && error.response) {
+            console.error('Notion API Error (update):', error.response.status, error.response.data);
+            console.error('Request data:', JSON.stringify(pageData, null, 2));
         }
-    });
-    return response.data;
+        throw error;
+    }
 }
 async function updateNotionPageStatus(pageId, statusName, notionToken) {
     try {

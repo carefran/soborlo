@@ -58,6 +58,7 @@ async function main(): Promise<void> {
           }
         } else {
           console.log(`Creating new ${itemType} #${item.number} in Notion`)
+          console.log(`Page data properties:`, Object.keys(pageData.properties))
           const newPage = await createNotionPage(pageData, notionToken)
           
           // 新規作成時もGitHub ProjectsのStatusを確認
