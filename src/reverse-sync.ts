@@ -89,96 +89,17 @@ function extractPbiId(title: string): string | null {
 }
 
 function normalizeTitle(title: string): string {
-  // PBI-ID部分を除去
-  let normalized = title.replace(/^PBI-\d+:\s*/i, '')
-  
-  // 前後の空白・改行を除去
-  normalized = normalized.trim()
-  
-  // 全角記号を半角に変換
-  normalized = normalized
-    .replace(/：/g, ':')
-    .replace(/（/g, '(')
-    .replace(/）/g, ')')
-    .replace(/！/g, '!')
-    .replace(/？/g, '?')
-    .replace(/．/g, '.')
-    .replace(/，/g, ',')
-    .replace(/；/g, ';')
-    .replace(/「/g, '"')
-    .replace(/」/g, '"')
-    .replace(/【/g, '[')
-    .replace(/】/g, ']')
-    .replace(/｛/g, '{')
-    .replace(/｝/g, '}')
-    .replace(/～/g, '~')
-    .replace(/－/g, '-')
-    .replace(/＿/g, '_')
-    .replace(/＋/g, '+')
-    .replace(/＝/g, '=')
-    .replace(/＆/g, '&')
-    .replace(/％/g, '%')
-    .replace(/＃/g, '#')
-    .replace(/＠/g, '@')
-    .replace(/＄/g, '$')
-    .replace(/／/g, '/')
-    .replace(/＼/g, '\\')
-    .replace(/｜/g, '|')
-    .replace(/＾/g, '^')
-    .replace(/｀/g, '`')
-    .replace(/＊/g, '*')
-  
-  // 全角英数字を半角に変換
-  normalized = normalized.replace(/[Ａ-Ｚａ-ｚ０-９]/g, function(s) {
-    return String.fromCharCode(s.charCodeAt(0) - 0xFEE0)
-  })
-  
-  // 全角スペースを半角スペースに変換
-  normalized = normalized.replace(/　/g, ' ')
-  
-  // 連続するスペースを1つにまとめる
-  normalized = normalized.replace(/\s+/g, ' ')
-  
-  // 再度前後の空白を除去
-  normalized = normalized.trim()
-  
-  // 小文字に変換
-  normalized = normalized.toLowerCase()
-  
-  // すべてのスペースを除去（最終的なマッチングでスペースを無視）
-  normalized = normalized.replace(/\s/g, '')
-  
-  return normalized
+  // PBI-ID部分を除去して正規化
+  return title.replace(/^PBI-\d+:\s*/i, '').trim().toLowerCase()
 }
 
 function matchByTitle(notionTitle: string, githubIssues: GitHubIssue[]): GitHubIssue | null {
   const normalizedNotionTitle = normalizeTitle(notionTitle)
   
-  // 完全一致を最優先
-  const exactMatch = githubIssues.find(issue => {
+  return githubIssues.find(issue => {
     const normalizedGithubTitle = normalizeTitle(issue.title)
     return normalizedGithubTitle === normalizedNotionTitle
-  })
-  
-  if (exactMatch) {
-    return exactMatch
-  }
-  
-  // 完全一致がない場合、部分一致を試す（長い方に短い方が含まれている）
-  const partialMatch = githubIssues.find(issue => {
-    const normalizedGithubTitle = normalizeTitle(issue.title)
-    
-    // より長いタイトルに短いタイトルが含まれているかチェック
-    if (normalizedGithubTitle.length > normalizedNotionTitle.length) {
-      return normalizedGithubTitle.includes(normalizedNotionTitle)
-    } else if (normalizedNotionTitle.length > normalizedGithubTitle.length) {
-      return normalizedNotionTitle.includes(normalizedGithubTitle)
-    }
-    
-    return false
-  })
-  
-  return partialMatch || null
+  }) || null
 }
 
 async function matchNotionWithGitHub(
@@ -195,8 +116,6 @@ async function matchNotionWithGitHub(
       githubIssue: null,
       matchType: 'none'
     }
-
-    console.log(`\n🔍 Matching Notion page: "${notionTitle}"`)
 
     if (pbiId) {
       // PBI-IDでマッチング
@@ -217,37 +136,14 @@ async function matchNotionWithGitHub(
 
     if (!matchResult.githubIssue) {
       // タイトルでマッチング
-      const normalizedNotionTitle = normalizeTitle(notionTitle)
-      console.log(`   Normalized Notion title: "${normalizedNotionTitle}"`)
-      
-      // 候補を探す
-      const candidates = githubIssues.filter(issue => {
-        const normalizedGithubTitle = normalizeTitle(issue.title)
-        return normalizedGithubTitle.includes(normalizedNotionTitle) || 
-               normalizedNotionTitle.includes(normalizedGithubTitle)
-      })
-      
-      console.log(`   Found ${candidates.length} potential matches:`)
-      candidates.forEach(candidate => {
-        console.log(`     - #${candidate.number}: "${candidate.title}" (normalized: "${normalizeTitle(candidate.title)}")`)
-      })
-      
       const matchedIssue = matchByTitle(notionTitle, githubIssues)
       if (matchedIssue) {
-        const normalizedGithubTitle = normalizeTitle(matchedIssue.title)
-        const isExactMatch = normalizedGithubTitle === normalizedNotionTitle
-        console.log(`   ✅ ${isExactMatch ? 'Exact' : 'Partial'} match found: #${matchedIssue.number}`)
-        console.log(`     GitHub (normalized): "${normalizedGithubTitle}"`)
-        console.log(`     Notion (normalized): "${normalizedNotionTitle}"`)
-        
         matchResult = {
           notionPage,
           githubIssue: matchedIssue,
           matchType: 'title',
-          matchedBy: normalizedNotionTitle
+          matchedBy: normalizeTitle(notionTitle)
         }
-      } else {
-        console.log(`   ❌ No match found`)
       }
     }
 
