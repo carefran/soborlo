@@ -62,14 +62,24 @@ export async function getProjectStatus(
   issueNumber: number,
   githubToken: string
 ): Promise<string | null> {
+  // 組織レベルプロジェクト対応のクエリ
   const query = `
     query($owner: String!, $repo: String!, $issueNumber: Int!) {
       repository(owner: $owner, name: $repo) {
         issue(number: $issueNumber) {
-          projectItems(first: 10) {
+          projectItems(first: 20) {
             nodes {
               project {
                 title
+                url
+                owner {
+                  ... on Organization {
+                    login
+                  }
+                  ... on User {
+                    login
+                  }
+                }
               }
               fieldValueByName(name: "Status") {
                 ... on ProjectV2ItemFieldSingleSelectValue {
@@ -92,7 +102,13 @@ export async function getProjectStatus(
           issue: {
             projectItems: {
               nodes: Array<{
-                project: { title: string }
+                project: { 
+                  title: string
+                  url: string
+                  owner: {
+                    login: string
+                  }
+                }
                 fieldValueByName: { name: string } | null
               }>
             }
@@ -133,14 +149,23 @@ export async function getProjectStatus(
     // 利用可能なプロジェクトをログ出力
     console.log(`Available projects for issue #${issueNumber}:`, 
       projectItems.map(item => ({ 
-        project: item.project?.title, 
+        project: item.project?.title,
+        url: item.project?.url,
+        owner: item.project?.owner?.login,
         status: item.fieldValueByName?.name 
       }))
     )
     
-    // "Troika"プロジェクトのStatusを取得
-    const troikaItem = projectItems.find(item => item.project?.title === 'Troika')
-    return troikaItem?.fieldValueByName?.name || null
+    // プロジェクトのStatusを取得（より柔軟な検索）
+    // まず "Troika" を探し、なければ最初のプロジェクトを使用
+    let targetItem = projectItems.find(item => item.project?.title === 'Troika')
+    
+    if (!targetItem && projectItems.length > 0) {
+      console.log(`"Troika" project not found, using first available project: ${projectItems[0].project?.title}`)
+      targetItem = projectItems[0]
+    }
+    
+    return targetItem?.fieldValueByName?.name || null
   } catch (error) {
     console.error('Error fetching project status:', error)
     return null
