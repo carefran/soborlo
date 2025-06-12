@@ -1,5 +1,6 @@
 import * as core from '@actions/core'
-import { getIssuesAndPullRequests, getProjectStatus } from './services/github'
+import * as github from '@actions/github'
+import { getIssuesAndPullRequests, getProjectStatus, getProjectItems, getSingleIssue, getSinglePullRequest } from './services/github'
 import {
   findExistingNotionPage,
   createNotionPageData,
@@ -24,16 +25,49 @@ async function main(): Promise<void> {
       console.log(`Target Project: ${projectName}`)
     }
 
-    // 24時間前のISO文字列を生成
-    const since24h = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+    // GitHub イベントタイプによって処理を分岐
+    const eventName = process.env.GITHUB_EVENT_NAME
+    const isScheduledOrManual = eventName === 'schedule' || eventName === 'workflow_dispatch'
+    const isIssueEvent = eventName === 'issues'
+    const isPullRequestEvent = eventName === 'pull_request'
     
-    console.log(`Fetching items updated since: ${since24h} (last 24 hours)`)
+    console.log(`Event type: ${eventName}`)
     
-    const items = await getIssuesAndPullRequests(repo, includePullRequests, githubToken, since24h)
-    console.log(`Found ${items.length} items to sync (Issues${includePullRequests ? ' and Pull Requests' : ''} updated in last 24 hours)`)
-
     // リポジトリ名を分解
     const [owner, repoName] = repo.split('/')
+    
+    // イベントタイプによって取得方法を分岐
+    let items
+    if (isScheduledOrManual) {
+      console.log('Scheduled or manual execution: fetching items from GitHub Projects')
+      items = await getProjectItems(owner, projectName, githubToken)
+    } else if (isIssueEvent) {
+      console.log('Issue event: processing single issue from context')
+      const issueNumber = github.context.payload.issue?.number
+      if (issueNumber) {
+        const singleIssue = await getSingleIssue(owner, repoName, issueNumber, githubToken)
+        items = singleIssue ? [singleIssue] : []
+      } else {
+        console.error('Issue number not found in context')
+        items = []
+      }
+    } else if (isPullRequestEvent) {
+      console.log('Pull Request event: processing single PR from context')
+      const prNumber = github.context.payload.pull_request?.number
+      if (prNumber) {
+        const singlePR = await getSinglePullRequest(owner, repoName, prNumber, githubToken)
+        items = singlePR ? [singlePR] : []
+      } else {
+        console.error('PR number not found in context')
+        items = []
+      }
+    } else {
+      console.log('Unknown event type: falling back to 24-hour filter')
+      const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+      items = await getIssuesAndPullRequests(repo, includePullRequests, githubToken, since)
+    }
+    
+    console.log(`Found ${items.length} items to sync${isScheduledOrManual ? ' from GitHub Projects' : isIssueEvent ? ' (single issue from event)' : isPullRequestEvent ? ' (single PR from event)' : ` (Issues${includePullRequests ? ' and Pull Requests' : ''} updated in last 24 hours)`}`)
 
     for (const item of items) {
       try {

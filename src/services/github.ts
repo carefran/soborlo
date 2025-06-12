@@ -298,6 +298,278 @@ export async function getPullRequestDetails(
   }
 }
 
+export async function getProjectItems(
+  owner: string,
+  projectName?: string,
+  githubToken?: string
+): Promise<GitHubItem[]> {
+  if (!githubToken) {
+    console.log('GitHub token not provided, cannot fetch project items')
+    return []
+  }
+
+  // 組織レベルプロジェクトから全アイテムを取得するクエリ
+  const query = `
+    query($owner: String!) {
+      organization(login: $owner) {
+        projectsV2(first: 20) {
+          nodes {
+            id
+            title
+            items(first: 100) {
+              pageInfo {
+                hasNextPage
+                endCursor
+              }
+              nodes {
+                id
+                content {
+                  ... on Issue {
+                    id
+                    number
+                    title
+                    body
+                    state
+                    created_at: createdAt
+                    updated_at: updatedAt
+                    html_url: url
+                    labels(first: 20) {
+                      nodes {
+                        name
+                        color
+                      }
+                    }
+                    assignees(first: 10) {
+                      nodes {
+                        login
+                        avatar_url: avatarUrl
+                      }
+                    }
+                    repository {
+                      name
+                      owner {
+                        login
+                      }
+                    }
+                  }
+                  ... on PullRequest {
+                    id
+                    number
+                    title
+                    body
+                    state
+                    merged
+                    draft
+                    created_at: createdAt
+                    updated_at: updatedAt
+                    html_url: url
+                    labels(first: 20) {
+                      nodes {
+                        name
+                        color
+                      }
+                    }
+                    assignees(first: 10) {
+                      nodes {
+                        login
+                        avatar_url: avatarUrl
+                      }
+                    }
+                    repository {
+                      name
+                      owner {
+                        login
+                      }
+                    }
+                  }
+                }
+                fieldValues(first: 20) {
+                  nodes {
+                    ... on ProjectV2ItemFieldSingleSelectValue {
+                      name
+                      field {
+                        ... on ProjectV2FieldCommon {
+                          name
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  `;
+
+  try {
+    console.log(`Fetching project items from organization: ${owner}`)
+    
+    const response = await axios.post<{
+      data: {
+        organization: {
+          projectsV2: {
+            nodes: Array<{
+              id: string
+              title: string
+              items: {
+                pageInfo: {
+                  hasNextPage: boolean
+                  endCursor: string | null
+                }
+                nodes: Array<{
+                  id: string
+                  content: any
+                  fieldValues: {
+                    nodes: Array<{
+                      name: string
+                      field: { name: string }
+                    }>
+                  }
+                }>
+              }
+            }>
+          }
+        }
+      }
+      errors?: Array<{ message: string }>
+    }>(
+      'https://api.github.com/graphql',
+      {
+        query,
+        variables: { owner }
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${githubToken}`,
+          'Content-Type': 'application/json'
+        }
+      }
+    )
+
+    if (response.data.errors) {
+      console.error('GraphQL errors:', response.data.errors)
+      return []
+    }
+
+    const projects = response.data.data?.organization?.projectsV2?.nodes || []
+    
+    // 指定されたプロジェクト名でフィルタ、なければ最初のプロジェクト
+    let targetProject = projects.find(p => p.title === projectName) || projects[0]
+    
+    if (!targetProject) {
+      console.log('No projects found')
+      return []
+    }
+
+    console.log(`Using project: ${targetProject.title}`)
+    
+    const items: GitHubItem[] = []
+    
+    for (const item of targetProject.items.nodes) {
+      const content = item.content
+      if (!content) continue
+
+      // Issue or PullRequest のcontentを GitHubItem 形式に変換
+      if (content.repository) {
+        const transformedItem: GitHubItem = {
+          id: parseInt(content.id.replace(/\D/g, '')), // GraphQL IDから数値部分を抽出
+          number: content.number,
+          title: content.title,
+          body: content.body || '',
+          state: content.state.toLowerCase(),
+          created_at: content.created_at,
+          updated_at: content.updated_at,
+          html_url: content.html_url,
+          labels: content.labels?.nodes?.map((label: any) => ({
+            name: label.name,
+            color: label.color
+          })) || [],
+          assignees: content.assignees?.nodes?.map((assignee: any) => ({
+            login: assignee.login,
+            avatar_url: assignee.avatar_url
+          })) || []
+        }
+
+        // Pull Request固有のフィールドを追加
+        if ('merged' in content) {
+          (transformedItem as any).merged = content.merged
+          (transformedItem as any).draft = content.draft
+        }
+
+        items.push(transformedItem)
+      }
+    }
+
+    console.log(`Found ${items.length} items in project "${targetProject.title}"`)
+    return items
+
+  } catch (error) {
+    console.error('Error fetching project items:', error)
+    return []
+  }
+}
+
+export async function getSingleIssue(
+  owner: string,
+  repo: string,
+  issueNumber: number,
+  githubToken?: string
+): Promise<GitHubIssue | null> {
+  const headers: Record<string, string> = {
+    'User-Agent': 'github-issue-2-notion'
+  }
+
+  if (githubToken) {
+    headers.Authorization = `Bearer ${githubToken}`
+  }
+
+  try {
+    const response = await axios.get<GitHubIssue>(
+      `https://api.github.com/repos/${owner}/${repo}/issues/${issueNumber}`,
+      { headers }
+    )
+
+    // Pull Requestを除外
+    if ('pull_request' in response.data) {
+      return null
+    }
+
+    return response.data
+  } catch (error) {
+    console.error(`Error fetching issue #${issueNumber}:`, error)
+    return null
+  }
+}
+
+export async function getSinglePullRequest(
+  owner: string,
+  repo: string,
+  prNumber: number,
+  githubToken?: string
+): Promise<GitHubPullRequest | null> {
+  const headers: Record<string, string> = {
+    'User-Agent': 'github-issue-2-notion'
+  }
+
+  if (githubToken) {
+    headers.Authorization = `Bearer ${githubToken}`
+  }
+
+  try {
+    const response = await axios.get<GitHubPullRequest>(
+      `https://api.github.com/repos/${owner}/${repo}/pulls/${prNumber}`,
+      { headers }
+    )
+
+    return response.data
+  } catch (error) {
+    console.error(`Error fetching PR #${prNumber}:`, error)
+    return null
+  }
+}
+
 export async function updateProjectStatus(
   owner: string,
   repo: string,
