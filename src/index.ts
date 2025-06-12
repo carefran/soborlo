@@ -16,9 +16,13 @@ async function main(): Promise<void> {
     const notionDatabaseId = core.getInput('NOTION_DATABASE_ID')
     const githubToken = core.getInput('PROJECT_TOKEN') || core.getInput('GITHUB_TOKEN')
     const includePullRequests = core.getInput('include_pull_requests').toLowerCase() === 'true'
+    const projectName = core.getInput('project_name') || undefined
 
     console.log(`Syncing items from repository: ${repo}`)
     console.log(`Include Pull Requests: ${includePullRequests}`)
+    if (projectName) {
+      console.log(`Target Project: ${projectName}`)
+    }
 
     // 24時間前のISO文字列を生成
     const since24h = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
@@ -49,7 +53,7 @@ async function main(): Promise<void> {
           // GitHub ProjectsのStatusを取得してNotionに反映
           if (githubToken) {
             console.log(`Checking GitHub Projects status for ${itemType} #${item.number}`)
-            const githubStatus = await getProjectStatus(owner, repoName, item.number, githubToken)
+            const githubStatus = await getProjectStatus(owner, repoName, item.number, githubToken, projectName)
             
             if (githubStatus) {
               const notionStatus = mapGitHubStatusToNotion(githubStatus)
@@ -69,7 +73,7 @@ async function main(): Promise<void> {
           // 新規作成時もGitHub ProjectsのStatusを確認
           if (githubToken) {
             console.log(`Checking GitHub Projects status for new ${itemType} #${item.number}`)
-            const githubStatus = await getProjectStatus(owner, repoName, item.number, githubToken)
+            const githubStatus = await getProjectStatus(owner, repoName, item.number, githubToken, projectName)
             
             if (githubStatus) {
               const notionStatus = mapGitHubStatusToNotion(githubStatus)

@@ -62,7 +62,9 @@ jobs:
           NOTION_API_KEY: ${{ secrets.NOTION_API_KEY }}
           NOTION_DATABASE_ID: ${{ secrets.NOTION_DATABASE_ID }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PROJECT_TOKEN: ${{ secrets.PROJECT_TOKEN }}
           include_pull_requests: "true"
+          project_name: "My Project"  # Optional: specify project name
 ```
 
 ### 3. Configure Secrets
@@ -71,6 +73,7 @@ Add these secrets to your repository settings:
 - `NOTION_API_KEY`: Your Notion integration token
 - `NOTION_DATABASE_ID`: The ID of your Notion database
 - `GITHUB_TOKEN`: GitHub token (recommended for GitHub Projects sync)
+- `PROJECT_TOKEN`: Personal Access Token with project permissions (alternative to GITHUB_TOKEN for enhanced Projects access)
 
 ## 🔧 Configuration
 
@@ -80,7 +83,9 @@ Add these secrets to your repository settings:
 | `NOTION_API_KEY` | Notion API integration token | Yes | - |
 | `NOTION_DATABASE_ID` | Notion database ID | Yes | - |
 | `GITHUB_TOKEN` | GitHub token for Projects access | No | - |
+| `PROJECT_TOKEN` | Personal Access Token (alternative to GITHUB_TOKEN) | No | - |
 | `include_pull_requests` | Include PRs in sync | No | `false` |
+| `project_name` | GitHub Projects v2 name to sync from | No | First available |
 
 ## 🔄 Synchronization Events
 

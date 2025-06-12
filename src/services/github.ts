@@ -118,7 +118,8 @@ export async function getProjectStatus(
   owner: string,
   repo: string,
   issueNumber: number,
-  githubToken: string
+  githubToken: string,
+  projectName?: string
 ): Promise<string | null> {
   // 組織レベルプロジェクト対応のクエリ
   const query = `
@@ -215,11 +216,18 @@ export async function getProjectStatus(
     )
     
     // プロジェクトのStatusを取得（より柔軟な検索）
-    // まず "Troika" を探し、なければ最初のプロジェクトを使用
-    let targetItem = projectItems.find(item => item.project?.title === 'Troika')
+    // 指定されたプロジェクト名を探し、なければ最初のプロジェクトを使用
+    let targetItem: typeof projectItems[0] | undefined
+    
+    if (projectName) {
+      targetItem = projectItems.find(item => item.project?.title === projectName)
+      if (!targetItem) {
+        console.log(`Specified project "${projectName}" not found`)
+      }
+    }
     
     if (!targetItem && projectItems.length > 0) {
-      console.log(`"Troika" project not found, using first available project: ${projectItems[0].project?.title}`)
+      console.log(`${projectName ? `Specified project "${projectName}" not found, ` : ''}Using first available project: ${projectItems[0].project?.title}`)
       targetItem = projectItems[0]
     }
     

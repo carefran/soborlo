@@ -24,6 +24,9 @@ inputs:
     description: "Whether to include Pull Requests in sync (true/false)"
     required: false
     default: "false"
+  project_name:
+    description: "GitHub Projects v2 project name to sync status from (optional, defaults to first available project)"
+    required: false
 runs:
   using: "node20"
   main: "dist/index.js"
