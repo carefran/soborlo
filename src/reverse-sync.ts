@@ -5,6 +5,7 @@ import { getProjectStatus, getIssues } from './services/github'
 import { updateNotionPageStatus, mapGitHubStatusToNotion } from './services/notion'
 import { NotionPage } from './types/notion'
 import { GitHubIssue } from './types/github'
+import { getErrorMessage } from './utils/error-handler'
 
 // .envファイルを読み込み
 dotenv.config()
@@ -89,7 +90,6 @@ function extractPbiId(title: string): string | null {
 }
 
 function normalizeTitle(title: string): string {
-  // PBI-ID部分を除去して正規化
   return title.replace(/^PBI-\d+:\s*/i, '').trim().toLowerCase()
 }
 
@@ -118,7 +118,6 @@ async function matchNotionWithGitHub(
     }
 
     if (pbiId) {
-      // PBI-IDでマッチング
       const matchedIssue = githubIssues.find(issue => {
         const issuePbiId = extractPbiId(issue.title)
         return issuePbiId === pbiId
@@ -135,7 +134,6 @@ async function matchNotionWithGitHub(
     }
 
     if (!matchResult.githubIssue) {
-      // タイトルでマッチング
       const matchedIssue = matchByTitle(notionTitle, githubIssues)
       if (matchedIssue) {
         matchResult = {
@@ -171,18 +169,14 @@ async function reverseSyncNotionToGitHub(dryRun: boolean = false): Promise<void>
     console.log(`Starting reverse sync for repository: ${repo}`)
     console.log(`🎯 Goal: Sync Notion pages (except "Not started", "完了", and "無効") with GitHub Projects status`)
 
-    // NotionからNot Started・完了・無効以外のページを取得
     const notionPages = await getNotionPagesForReverseSync(notionToken, notionDatabaseId)
     console.log(`Found ${notionPages.length} Notion pages to sync (excluding "Not started", "完了", and "無効")`)
 
-    // GitHub Issuesを取得
     const githubIssues = await getIssues(repo, githubToken)
     console.log(`Found ${githubIssues.length} GitHub issues`)
 
-    // マッチング実行
     const matchResults = await matchNotionWithGitHub(notionPages, githubIssues)
 
-    // リポジトリ名を分解
     const [owner, repoName] = repo.split('/')
 
     let matchedCount = 0
@@ -199,7 +193,6 @@ async function reverseSyncNotionToGitHub(dryRun: boolean = false): Promise<void>
         console.log(`   → GitHub Issue #${result.githubIssue.number} (${result.matchType}: ${result.matchedBy})`)
 
         try {
-          // GitHub Projectsのステータスを取得
           const githubStatus = await getProjectStatus(owner, repoName, result.githubIssue.number, githubToken)
           const currentNotionStatus = result.notionPage.properties.Status?.status?.name
 
@@ -223,11 +216,10 @@ async function reverseSyncNotionToGitHub(dryRun: boolean = false): Promise<void>
             skippedCount++
           }
         } catch (error) {
-          console.error(`   ❌ Error syncing status: ${error instanceof Error ? error.message : String(error)}`)
+          console.error(`   ❌ Error syncing status: ${getErrorMessage(error)}`)
           skippedCount++
         }
 
-        // API制限を避けるために少し待機
         await new Promise(resolve => setTimeout(resolve, 100))
       } else {
         unmatchedPages.push(result.notionPage)
@@ -252,18 +244,16 @@ async function reverseSyncNotionToGitHub(dryRun: boolean = false): Promise<void>
 
     console.log(`\n✨ Reverse sync ${dryRun ? 'dry run ' : ''}completed successfully`)
   } catch (error) {
-    console.error('Error in reverse sync:', error instanceof Error ? error.message : String(error))
+    console.error('Error in reverse sync:', getErrorMessage(error))
     process.exit(1)
   }
 }
 
-// スクリプトが直接実行された場合
 if (require.main === module) {
-  // コマンドライン引数をチェック
   const isDryRun = process.argv.includes('--dry-run') || process.argv.includes('-d')
   
   reverseSyncNotionToGitHub(isDryRun).catch(error => {
-    console.error('Unhandled error:', error instanceof Error ? error.message : String(error))
+    console.error('Unhandled error:', getErrorMessage(error))
     process.exit(1)
   })
 }
