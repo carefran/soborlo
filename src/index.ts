@@ -2,6 +2,7 @@ import * as core from '@actions/core'
 import { getActionConfig, parseRepositoryInfo, logConfig } from './services/action-config'
 import { getEventContext, fetchItemsBasedOnEvent, getItemsSyncMessage } from './services/event-handler'
 import { processAllItems } from './services/sync-processor'
+import { getErrorMessage } from './utils/error-handler'
 
 async function main(): Promise<void> {
   try {
@@ -24,7 +25,7 @@ async function main(): Promise<void> {
 
     console.log('Sync completed successfully')
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error)
+    const errorMessage = getErrorMessage(error)
     console.error('Error in main:', errorMessage)
     core.setFailed(errorMessage)
     process.exit(1)
@@ -32,6 +33,6 @@ async function main(): Promise<void> {
 }
 
 main().catch(error => {
-  console.error('Unhandled error:', error instanceof Error ? error.message : String(error))
+  console.error('Unhandled error:', getErrorMessage(error))
   process.exit(1)
 }) 

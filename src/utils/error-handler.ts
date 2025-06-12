@@ -17,11 +17,8 @@ export class ConfigurationError extends Error {
   }
 }
 
-export function handleError(error: unknown): string {
-  if (error instanceof Error) {
-    return error.message
-  }
-  return String(error)
+export function getErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error)
 }
 
 export function createSyncError(

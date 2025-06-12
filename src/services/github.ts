@@ -238,66 +238,6 @@ export async function getProjectStatus(
   }
 }
 
-export async function getIssueState(
-  owner: string,
-  repo: string,
-  issueNumber: number,
-  githubToken?: string
-): Promise<string | null> {
-  const headers: Record<string, string> = {
-    'User-Agent': 'github-issue-2-notion'
-  }
-
-  if (githubToken) {
-    headers.Authorization = `Bearer ${githubToken}`
-  }
-
-  try {
-    const response = await axios.get<{ state: string }>(
-      `https://api.github.com/repos/${owner}/${repo}/issues/${issueNumber}`,
-      { headers }
-    )
-    return response.data.state
-  } catch (error) {
-    console.error(`Error fetching issue state for #${issueNumber}:`, error)
-    return null
-  }
-}
-
-export async function getPullRequestDetails(
-  owner: string,
-  repo: string,
-  prNumber: number,
-  githubToken?: string
-): Promise<{ state: string; merged: boolean; draft: boolean } | null> {
-  const headers: Record<string, string> = {
-    'User-Agent': 'github-issue-2-notion'
-  }
-
-  if (githubToken) {
-    headers.Authorization = `Bearer ${githubToken}`
-  }
-
-  try {
-    const response = await axios.get<{ 
-      state: string;
-      merged: boolean;
-      draft: boolean;
-    }>(
-      `https://api.github.com/repos/${owner}/${repo}/pulls/${prNumber}`,
-      { headers }
-    )
-    return {
-      state: response.data.state,
-      merged: response.data.merged,
-      draft: response.data.draft
-    }
-  } catch (error) {
-    console.error(`Error fetching PR details for #${prNumber}:`, error)
-    return null
-  }
-}
-
 export async function getProjectItems(
   owner: string,
   projectName?: string,
@@ -569,16 +509,3 @@ export async function getSinglePullRequest(
     return null
   }
 }
-
-export async function updateProjectStatus(
-  owner: string,
-  repo: string,
-  issueNumber: number,
-  statusName: string,
-  githubToken: string
-): Promise<boolean> {
-  // GitHub Projects v2 APIでのStatus更新実装
-  // 注: 実装には追加のGraphQL操作が必要
-  console.log(`Would update ${owner}/${repo}#${issueNumber} to status: ${statusName}`)
-  return true
-} 
