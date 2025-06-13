@@ -5,31 +5,126 @@ import { NotionPage, NotionPageData } from '../types/notion'
 import { logger } from '../utils/logger'
 import { retryWithBackoff } from '../utils/retry'
 
+// Helper function to search Notion by a specific field
+async function searchNotionByField(
+  fieldName: string,
+  fieldValue: any,
+  notionToken: string,
+  notionDatabaseId: string,
+): Promise<NotionPage[]> {
+  try {
+    let filter: any
+    
+    if (typeof fieldValue === 'number') {
+      filter = {
+        property: fieldName,
+        number: { equals: fieldValue },
+      }
+    } else if (typeof fieldValue === 'string') {
+      filter = {
+        property: fieldName,
+        rich_text: { equals: fieldValue },
+      }
+    } else {
+      return []
+    }
+
+    const response = await axios.post<{ results: NotionPage[] }>(
+      `https://api.notion.com/v1/databases/${notionDatabaseId}/query`,
+      { filter },
+      {
+        headers: {
+          Authorization: `Bearer ${notionToken}`,
+          'Notion-Version': '2022-06-28',
+          'Content-Type': 'application/json',
+        },
+      },
+    )
+
+    return response.data.results
+  } catch (error) {
+    logger.debug(`Search failed for ${fieldName}=${fieldValue}:`, error)
+    return []
+  }
+}
+
+// Helper function to verify and fix Notion page ID if needed
+async function verifyAndFixNotionId(
+  page: NotionPage,
+  expectedId: number,
+  notionToken: string,
+): Promise<void> {
+  try {
+    const currentId = page.properties.ID?.number
+    if (currentId !== expectedId) {
+      logger.info(`🔧 Correcting Notion page ID: ${currentId} → ${expectedId}`)
+      
+      await axios.patch(
+        `https://api.notion.com/v1/pages/${page.id}`,
+        {
+          properties: {
+            ID: { number: expectedId },
+          },
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${notionToken}`,
+            'Content-Type': 'application/json',
+            'Notion-Version': '2022-06-28',
+          },
+        },
+      )
+      
+      logger.info(`✅ Successfully corrected Notion page ID to ${expectedId}`)
+    }
+  } catch (error) {
+    logger.warn(`⚠️ Failed to correct Notion page ID: ${error}`)
+  }
+}
+
+// Robust multi-criteria search for existing Notion pages
 export async function findExistingNotionPage(
-  itemId: number,
+  item: GitHubItem,
   notionToken: string,
   notionDatabaseId: string,
 ): Promise<NotionPage | null> {
-  const response = await axios.post<{ results: NotionPage[] }>(
-    `https://api.notion.com/v1/databases/${notionDatabaseId}/query`,
-    {
-      filter: {
-        property: 'ID',
-        number: {
-          equals: itemId,
-        },
-      },
-    },
-    {
-      headers: {
-        Authorization: `Bearer ${notionToken}`,
-        'Notion-Version': '2022-06-28',
-        'Content-Type': 'application/json',
-      },
-    },
-  )
-
-  return response.data.results.length > 0 ? response.data.results[0] : null
+  logger.debug(`🔍 Searching for existing Notion page for GitHub item #${item.number} (ID: ${item.id})`)
+  
+  // Strategy 1: Search by GitHub ID
+  logger.debug(`1️⃣ Searching by GitHub ID: ${item.id}`)
+  let results = await searchNotionByField('ID', item.id, notionToken, notionDatabaseId)
+  
+  if (results.length > 0) {
+    logger.info(`✅ Found page by GitHub ID: ${item.id}`)
+    const page = results[0]
+    await verifyAndFixNotionId(page, item.id, notionToken)
+    return page
+  }
+  
+  // Strategy 2: Search by Issue/PR Number
+  logger.debug(`2️⃣ Searching by Number: ${item.number}`)
+  results = await searchNotionByField('Number', item.number, notionToken, notionDatabaseId)
+  
+  if (results.length > 0) {
+    logger.info(`✅ Found page by Number: ${item.number}, correcting ID`)
+    const page = results[0]
+    await verifyAndFixNotionId(page, item.id, notionToken)
+    return page
+  }
+  
+  // Strategy 3: Search by URL
+  logger.debug(`3️⃣ Searching by URL: ${item.html_url}`)
+  results = await searchNotionByField('URL', item.html_url, notionToken, notionDatabaseId)
+  
+  if (results.length > 0) {
+    logger.info(`✅ Found page by URL: ${item.html_url}, correcting ID`)
+    const page = results[0]
+    await verifyAndFixNotionId(page, item.id, notionToken)
+    return page
+  }
+  
+  logger.debug(`❌ No existing Notion page found for GitHub item #${item.number}`)
+  return null
 }
 
 function isPullRequest(item: GitHubItem): item is GitHubPullRequest {
@@ -190,8 +285,10 @@ export async function updateNotionPageStatus(
   notionToken: string,
 ): Promise<void> {
   try {
-    await retryWithBackoff(async () => {
-      await axios.patch(
+    logger.debug(`Attempting to update Notion page ${pageId} status to: ${statusName}`)
+    
+    const response = await retryWithBackoff(async () => {
+      return await axios.patch(
         `https://api.notion.com/v1/pages/${pageId}`,
         {
           properties: {
@@ -211,9 +308,32 @@ export async function updateNotionPageStatus(
         },
       )
     })
-    logger.debug(`Updated Notion page ${pageId} status to: ${statusName}`)
+    
+    logger.info(`✅ Successfully updated Notion page ${pageId} status to: ${statusName}`)
+    logger.debug(`API Response Status: ${response.status}`)
+    
+    // 更新後の実際のステータスを確認
+    if (response.data.properties?.Status?.status?.name) {
+      const actualStatus = response.data.properties.Status.status.name
+      if (actualStatus !== statusName) {
+        logger.warn(`⚠️ Status mismatch! Expected: ${statusName}, Actual: ${actualStatus}`)
+      } else {
+        logger.debug(`✅ Status confirmed: ${actualStatus}`)
+      }
+    }
+    
   } catch (error) {
-    logger.error('Error updating Notion page status:', error)
+    logger.error('❌ Error updating Notion page status:', error)
+    
+    if (axios.isAxiosError(error) && error.response) {
+      logger.error('API Error Details:', {
+        status: error.response.status,
+        statusText: error.response.statusText,
+        data: error.response.data,
+        headers: error.response.headers
+      })
+    }
+    
     throw error
   }
 }
@@ -229,5 +349,14 @@ export function mapGitHubStatusToNotion(githubStatus: string): string {
     '完了': '完了',
   }
   
-  return statusMap[githubStatus] || 'Not started'
+  const mappedStatus = statusMap[githubStatus] || 'Not started'
+  
+  // デバッグログを追加
+  logger.debug(`🔄 Status mapping: "${githubStatus}" → "${mappedStatus}"`)
+  if (mappedStatus === 'Not started') {
+    logger.warn(`⚠️ Unmapped GitHub status: "${githubStatus}" - using default "Not started"`)
+    logger.debug('Available mappings:', Object.keys(statusMap))
+  }
+  
+  return mappedStatus
 } 

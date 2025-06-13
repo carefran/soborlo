@@ -155,7 +155,10 @@ export async function getProjectStatus(
 
   try {
     logger.debug(`Fetching project status for ${owner}/${repo}#${issueNumber}`)
+    logger.debug('GraphQL query variables:', { owner, repo, issueNumber })
+    logger.debug('GraphQL query:', query.replace(/\s+/g, ' ').trim())
     
+    const startTime = Date.now()
     const response = await axios.post<{
       data: {
         repository: {
@@ -189,52 +192,82 @@ export async function getProjectStatus(
         },
       },
     )
+    
+    const duration = Date.now() - startTime
+    logger.debug(`⏱️ GraphQL query completed in ${duration}ms`)
 
     // GraphQLエラーをチェック
     if (response.data.errors) {
-      logger.error('GraphQL errors:', response.data.errors)
+      logger.error('❌ GraphQL errors:', response.data.errors)
       return null
     }
 
-    // レスポンス全体をデバッグ出力
-    logger.debug(`GraphQL response for issue #${issueNumber}:`, JSON.stringify(response.data, null, 2))
+    logger.debug(`📡 HTTP Response Status: ${response.status}`)
+    
+    logger.debug(`📋 GraphQL response for issue #${issueNumber}:`, JSON.stringify(response.data, null, 2))
 
     const repository = response.data.data?.repository
-    if (!repository?.issue?.projectItems?.nodes) {
+    if (!repository) {
+      logger.warn(`⚠️ Repository ${owner}/${repo} not found or not accessible`)
+      return null
+    }
+    
+    if (!repository.issue) {
+      logger.warn(`⚠️ Issue #${issueNumber} not found in ${owner}/${repo}`)
+      return null
+    }
+    
+    if (!repository.issue.projectItems?.nodes) {
+      logger.info(`Issue #${issueNumber} is not associated with any projects`)
       return null
     }
 
     const projectItems = repository.issue.projectItems.nodes
+    logger.info(`Issue #${issueNumber} found in ${projectItems.length} project(s)`)
     
-    // 利用可能なプロジェクトをデバッグ出力
-    logger.debug(`Available projects for issue #${issueNumber}:`, 
-      projectItems.map(item => ({ 
-        project: item.project?.title,
-        url: item.project?.url,
-        owner: item.project?.owner?.login,
-        status: item.fieldValueByName?.name, 
-      })),
-    )
+    logger.debug(`Available projects for issue #${issueNumber}:`)
+    projectItems.forEach((item, index) => {
+      logger.debug(`  ${index + 1}. Project: "${item.project?.title}" (Owner: ${item.project?.owner?.login})`)
+      logger.debug(`     Status: "${item.fieldValueByName?.name || 'No Status'}"`)
+      logger.debug(`     URL: ${item.project?.url || 'No URL'}`)
+    })
     
     // プロジェクトのStatusを取得（より柔軟な検索）
     // 指定されたプロジェクト名を探し、なければ最初のプロジェクトを使用
     let targetItem: typeof projectItems[0] | undefined
     
     if (projectName) {
+      logger.debug(`Looking for specified project: "${projectName}"`)
       targetItem = projectItems.find(item => item.project?.title === projectName)
       if (!targetItem) {
-        logger.warn(`Specified project "${projectName}" not found`)
+        logger.warn(`⚠️ Specified project "${projectName}" not found`)
+        logger.debug('Available project names:', projectItems.map(item => item.project?.title).filter(Boolean))
+      } else {
+        logger.debug(`Found specified project: "${projectName}"`)
       }
     }
     
     if (!targetItem && projectItems.length > 0) {
-      logger.info(`${projectName ? `Specified project "${projectName}" not found, ` : ''}Using first available project: ${projectItems[0].project?.title}`)
+      const firstProject = projectItems[0].project?.title
+      logger.info(`${projectName ? `Specified project "${projectName}" not found, ` : ''}Using first available project: "${firstProject}"`)
       targetItem = projectItems[0]
     }
     
-    return targetItem?.fieldValueByName?.name ?? null
+    const status = targetItem?.fieldValueByName?.name ?? null
+    logger.info(`GitHub Projects status: "${status || 'No Status'}" for issue #${issueNumber}`)
+    
+    return status
   } catch (error) {
-    logger.error('Error fetching project status:', error)
+    logger.error('❌ Error fetching project status:', error)
+    if (axios.isAxiosError(error)) {
+      logger.error('API Error Details:', {
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        url: error.config?.url,
+        method: error.config?.method
+      })
+    }
     return null
   }
 }

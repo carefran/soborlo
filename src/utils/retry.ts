@@ -30,22 +30,36 @@ export async function retryWithBackoff<T>(
 
   for (let attempt = 0; attempt <= opts.maxRetries; attempt++) {
     try {
-      return await operation()
+      if (attempt > 0) {
+        logger.debug(`🔄 Retry attempt ${attempt}/${opts.maxRetries}`)
+      }
+      
+      const result = await operation()
+      
+      if (attempt > 0) {
+        logger.info(`✅ Operation succeeded on retry attempt ${attempt}`)
+      }
+      
+      return result
     } catch (error: unknown) {
       lastError = error
 
       if (attempt === opts.maxRetries) {
+        logger.error(`❌ Operation failed after ${opts.maxRetries + 1} attempts`)
         break
       }
 
       const errorWithResponse = error as { response?: { status?: number } }
-      const isRetryableError = errorWithResponse.response?.status && opts.retryableStatuses?.includes(errorWithResponse.response.status)
+      const status = errorWithResponse.response?.status
+      const isRetryableError = status && opts.retryableStatuses?.includes(status)
+      
       if (!isRetryableError) {
+        logger.debug(`❌ Non-retryable error (status: ${status}), aborting`)
         throw error
       }
 
       const delay = Math.min(opts.baseDelay * Math.pow(2, attempt), opts.maxDelay)
-      logger.warn(`Attempt ${attempt + 1} failed with status ${errorWithResponse.response?.status}, retrying in ${delay}ms...`)
+      logger.warn(`⚠️ Attempt ${attempt + 1} failed with status ${status}, retrying in ${delay}ms...`)
       
       await new Promise(resolve => setTimeout(resolve, delay))
     }

@@ -22,7 +22,7 @@ export async function processSingleItem(
 
   try {
     const existingPage = await findExistingNotionPage(
-      item.id,
+      item,
       config.notionToken,
       config.notionDatabaseId,
     )
@@ -90,27 +90,39 @@ async function syncProjectStatus(
   pageId: string,
   itemType: string,
 ): Promise<void> {
-  logger.debug(`Checking GitHub Projects status for ${itemType} #${item.number}`)
+  logger.debug(`🔍 Checking GitHub Projects status for ${itemType} #${item.number}`)
   
   if (!config.githubToken) {
     logger.warn('GitHub token not available for project status sync')
     return
   }
   
-  const githubStatus = await getProjectStatus(
-    repositoryInfo.owner, 
-    repositoryInfo.repoName, 
-    item.number, 
-    config.githubToken,
-    config.projectName,
-  )
-  
-  if (githubStatus) {
-    const notionStatus = mapGitHubStatusToNotion(githubStatus)
-    logger.info(`GitHub Projects status: ${githubStatus} → Notion status: ${notionStatus}`)
-    await updateNotionPageStatus(pageId, notionStatus, config.notionToken)
-  } else {
-    logger.debug(`No GitHub Projects status found for ${itemType} #${item.number}`)
+  try {
+    const githubStatus = await getProjectStatus(
+      repositoryInfo.owner, 
+      repositoryInfo.repoName, 
+      item.number, 
+      config.githubToken,
+      config.projectName,
+    )
+    
+    if (githubStatus) {
+      logger.info(`📋 Found GitHub Projects status: "${githubStatus}" for ${itemType} #${item.number}`)
+      
+      const notionStatus = mapGitHubStatusToNotion(githubStatus)
+      logger.info(`🔄 GitHub Projects status: ${githubStatus} → Notion status: ${notionStatus}`)
+      
+      logger.debug(`📝 Updating Notion page ${pageId} with status: ${notionStatus}`)
+      await updateNotionPageStatus(pageId, notionStatus, config.notionToken)
+      
+      logger.info(`✅ Status sync completed for ${itemType} #${item.number}`)
+    } else {
+      logger.debug(`❌ No GitHub Projects status found for ${itemType} #${item.number}`)
+      logger.debug(`Repository: ${repositoryInfo.owner}/${repositoryInfo.repoName}, Project: ${config.projectName || 'auto-detect'}`)
+    }
+  } catch (error) {
+    logger.error(`❌ Error during status sync for ${itemType} #${item.number}:`, error)
+    throw error
   }
 }
 

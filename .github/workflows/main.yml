@@ -6,13 +6,25 @@ on:
   schedule:
     - cron: '0 5,23 * * 0-4'  # 平日JST8時 (UTC前日23時)
   workflow_dispatch:
-
+    inputs:
+      log_level:
+        description: 'Log Level'
+        required: false
+        default: 'INFO'
+        type: choice
+        options:
+          - ERROR
+          - WARN
+          - INFO
+          - DEBUG
 jobs:
   sync-issues:
     runs-on: ubuntu-latest
     steps:
       - name: Sync to Notion
         uses: carefran/soborlo@main
+        env:
+          LOG_LEVEL: DEBUG
         with:
           repo: ${{ github.repository }}
           NOTION_API_KEY: ${{ secrets.NOTION_API_KEY }}
