@@ -55,7 +55,24 @@ async function verifyAndFixNotionId(
   notionToken: string,
 ): Promise<void> {
   try {
-    const currentId = page.properties.ID?.rich_text?.[0]?.text?.content
+    // デバッグ用：IDプロパティの実際の構造を確認
+    logger.debug(`🔍 Raw ID property structure:`, JSON.stringify(page.properties.ID, null, 2))
+    
+    // IDプロパティの型を自動判定（number型またはrich_text型）
+    let currentId: string | undefined
+    
+    if (page.properties.ID?.rich_text?.[0]?.text?.content) {
+      // Rich text型の場合
+      currentId = page.properties.ID.rich_text[0].text.content
+      logger.debug(`📝 Found rich_text ID: ${currentId}`)
+    } else if ((page.properties.ID as any)?.number !== undefined) {
+      // Number型の場合（古いデータ）
+      currentId = (page.properties.ID as any).number.toString()
+      logger.debug(`🔢 Found number ID: ${currentId}`)
+    } else {
+      logger.warn(`⚠️ ID property has unknown structure`, page.properties.ID)
+    }
+    
     const pageNumber = page.properties.Number?.number
     const pageProduct = page.properties.Product?.select?.name
     const pageTitle = page.properties.Name?.title?.[0]?.text?.content
@@ -160,15 +177,6 @@ export function createNotionPageData(
           },
         ],
       },
-      ID: {
-        rich_text: [
-          {
-            text: {
-              content: item.id,
-            },
-          },
-        ],
-      },
       Number: {
         number: item.number,
       },
@@ -191,6 +199,19 @@ export function createNotionPageData(
         },
       },
     },
+  }
+
+  // 新規作成時のみIDプロパティを追加
+  if (!isUpdate) {
+    baseData.properties.ID = {
+      rich_text: [
+        {
+          text: {
+            content: item.id,
+          },
+        },
+      ],
+    }
   }
 
   // Add Product field if productName is provided

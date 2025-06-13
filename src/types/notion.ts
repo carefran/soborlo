@@ -11,7 +11,7 @@ export interface NotionProperties {
       }
     }>
   }
-  ID: {
+  ID?: {
     rich_text: Array<{
       text: {
         content: string
