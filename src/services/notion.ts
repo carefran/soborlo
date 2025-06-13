@@ -5,34 +5,16 @@ import { NotionPage, NotionPageData } from '../types/notion'
 import { logger } from '../utils/logger'
 import { retryWithBackoff } from '../utils/retry'
 
-// Helper function to search Notion by a specific field
-async function searchNotionByField(
-  fieldName: string,
-  fieldValue: any,
+// Robust multi-criteria search for existing Notion pages
+async function searchNotionById(
+  githubId: string,
   notionToken: string,
   notionDatabaseId: string,
 ): Promise<NotionPage[]> {
   try {
-    let filter: any
-    
-    // IDフィールドは数値のnode_idを文字列として統一保存するため、常にrich_textで検索
-    if (fieldName === 'ID') {
-      filter = {
-        property: fieldName,
-        rich_text: { equals: String(fieldValue) },
-      }
-    } else if (typeof fieldValue === 'number') {
-      filter = {
-        property: fieldName,
-        number: { equals: fieldValue },
-      }
-    } else if (typeof fieldValue === 'string') {
-      filter = {
-        property: fieldName,
-        rich_text: { equals: fieldValue },
-      }
-    } else {
-      return []
+    const filter = {
+      property: 'ID',
+      rich_text: { equals: githubId },
     }
 
     const response = await axios.post<{ results: NotionPage[] }>(
@@ -49,12 +31,11 @@ async function searchNotionByField(
 
     return response.data.results
   } catch (error) {
-    logger.debug(`Search failed for ${fieldName}=${fieldValue}:`, error)
+    logger.debug(`Search failed for ID=${githubId}:`, error)
     return []
   }
 }
 
-// Robust multi-criteria search for existing Notion pages
 export async function findExistingNotionPage(
   item: GitHubItem,
   notionToken: string,
@@ -62,7 +43,7 @@ export async function findExistingNotionPage(
 ): Promise<NotionPage | null> {
   logger.debug(`🔍 Searching for existing Notion page for GitHub item #${item.number} (ID: ${item.id})`)
   
-  const results = await searchNotionByField('ID', item.id, notionToken, notionDatabaseId)
+  const results = await searchNotionById(item.id, notionToken, notionDatabaseId)
   
   if (results.length > 0) {
     logger.info(`✅ Found page by GitHub ID: ${item.id}`)
