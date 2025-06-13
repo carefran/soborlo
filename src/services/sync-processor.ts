@@ -18,7 +18,6 @@ export async function processSingleItem(
   repositoryInfo: RepositoryInfo,
   config: ActionConfig,
 ): Promise<void> {
-  // const { repoName } = repositoryInfo // Currently unused
   const itemType = 'merged' in item ? 'Pull Request' : 'Issue'
 
   try {

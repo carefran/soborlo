@@ -102,22 +102,19 @@ export async function getIssuesAndPullRequests(
 ): Promise<GitHubItem[]> {
   const items: GitHubItem[] = []
 
-  // 常にIssueを取得
   const issues = await getIssues(repo, githubToken, since)
-  // node_idをidとして使用
+  // REST APIとGraphQL APIでIDの統一性を保つため、node_idを使用
   const transformedIssues = issues.map(issue => ({
     ...issue,
-    id: (issue as any).node_id,  // REST APIのnode_idを使用
+    id: (issue as any).node_id,
   }))
   items.push(...transformedIssues)
 
-  // オプションでPull Requestを取得
   if (includePullRequests) {
     const pullRequests = await getPullRequests(repo, githubToken, since)
-    // node_idをidとして使用
     const transformedPRs = pullRequests.map(pr => ({
       ...pr,
-      id: (pr as any).node_id,  // REST APIのnode_idを使用
+      id: (pr as any).node_id,
     }))
     items.push(...transformedPRs)
   }
@@ -132,7 +129,6 @@ export async function getProjectStatus(
   githubToken: string,
   projectName?: string,
 ): Promise<string | null> {
-  // 組織レベルプロジェクト対応のクエリ
   const query = `
     query($owner: String!, $repo: String!, $issueNumber: Int!) {
       repository(owner: $owner, name: $repo) {
@@ -206,14 +202,12 @@ export async function getProjectStatus(
     const duration = Date.now() - startTime
     logger.debug(`⏱️ GraphQL query completed in ${duration}ms`)
 
-    // GraphQLエラーをチェック
     if (response.data.errors) {
       logger.error('❌ GraphQL errors:', response.data.errors)
       return null
     }
 
     logger.debug(`📡 HTTP Response Status: ${response.status}`)
-    
     logger.debug(`📋 GraphQL response for issue #${issueNumber}:`, JSON.stringify(response.data, null, 2))
 
     const repository = response.data.data?.repository
@@ -242,7 +236,6 @@ export async function getProjectStatus(
       logger.debug(`     URL: ${item.project?.url || 'No URL'}`)
     })
     
-    // プロジェクトのStatusを取得（より柔軟な検索）
     // 指定されたプロジェクト名を探し、なければ最初のプロジェクトを使用
     let targetItem: typeof projectItems[0] | undefined
     
@@ -454,13 +447,11 @@ export async function getProjectItems(
     let hasNextPage = targetProject.items.pageInfo.hasNextPage
     let cursor = targetProject.items.pageInfo.endCursor
     
-    // 初回のアイテムを処理
     const processItems = async (itemNodes: any[]) => {
       for (const item of itemNodes) {
         const content = item.content
         if (!content) continue
 
-        // Issue or PullRequest のcontentを GitHubItem 形式に変換
         if (content.repository) {
           logger.debug(`Processing item: #${content.number}`)
           logger.debug(`  GraphQL Node ID: "${content.id}" (type: ${typeof content.id})`)
@@ -508,7 +499,7 @@ export async function getProjectItems(
     await processItems(targetProject.items.nodes)
     logger.debug(`Processed initial page: ${targetProject.items.nodes.length} items`)
 
-    // ページネーションで残りのアイテムを取得
+    // GraphQL APIのページネーション制限により複数回リクエストが必要
     while (hasNextPage && cursor) {
       logger.debug(`Fetching next page with cursor: ${cursor}`)
       
@@ -601,12 +592,11 @@ export async function getSingleIssue(
       { headers },
     )
 
-    // Pull Requestを除外
+    // GitHub APIはPRもissueエンドポイントで返すため除外
     if ('pull_request' in response.data) {
       return null
     }
 
-    // node_idをidとして使用
     return {
       ...response.data,
       id: (response.data as any).node_id,
@@ -637,7 +627,6 @@ export async function getSinglePullRequest(
       { headers },
     )
 
-    // node_idをidとして使用
     return {
       ...response.data,
       id: (response.data as any).node_id,

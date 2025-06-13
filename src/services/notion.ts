@@ -15,7 +15,7 @@ async function searchNotionByField(
   try {
     let filter: any
     
-    // IDフィールドは常にrich_textとして検索（数値の場合は文字列に変換）
+    // IDフィールドは数値のnode_idを文字列として統一保存するため、常にrich_textで検索
     if (fieldName === 'ID') {
       filter = {
         property: fieldName,
@@ -62,8 +62,6 @@ export async function findExistingNotionPage(
 ): Promise<NotionPage | null> {
   logger.debug(`🔍 Searching for existing Notion page for GitHub item #${item.number} (ID: ${item.id})`)
   
-  // Search by GitHub ID only
-  logger.debug(`🔍 Searching by GitHub ID: ${item.id}`)
   const results = await searchNotionByField('ID', item.id, notionToken, notionDatabaseId)
   
   if (results.length > 0) {
@@ -122,7 +120,6 @@ export function createNotionPageData(
     },
   }
 
-  // Add Product field if productName is provided
   if (productName) {
     baseData.properties.Product = {
       select: {
@@ -144,6 +141,7 @@ export function createNotionPageData(
       try {
         baseData.children = markdownToBlocks(item.body)
       } catch {
+        // markdownToBlocksが失敗した場合のフォールバック: 生テキストとして表示
         baseData.children = [
           {
             object: 'block',
@@ -167,7 +165,7 @@ export function createNotionPageData(
   return baseData
 }
 
-// IDプロパティをページ作成後に設定する関数
+// ページ作成時はIDプロパティを含められないため、作成後に別途設定する
 export async function setNotionPageId(
   pageId: string,
   githubId: string,
@@ -288,7 +286,7 @@ export async function updateNotionPageStatus(
     logger.info(`✅ Successfully updated Notion page ${pageId} status to: ${statusName}`)
     logger.debug(`API Response Status: ${response.status}`)
     
-    // 更新後の実際のステータスを確認
+    // Notionのステータス更新は非同期のため、設定値と実際の値に差異がある場合がある
     if (response.data.properties?.Status?.status?.name) {
       const actualStatus = response.data.properties.Status.status.name
       if (actualStatus !== statusName) {
@@ -314,7 +312,7 @@ export async function updateNotionPageStatus(
   }
 }
 
-// GitHub ProjectsとNotionのStatus名をマッピング
+// プロジェクト固有のステータス名をNotionデータベースのステータス名にマッピング
 export function mapGitHubStatusToNotion(githubStatus: string): string {
   const statusMap: Record<string, string> = {
     'お手すきに': 'お手すきに',
@@ -327,7 +325,6 @@ export function mapGitHubStatusToNotion(githubStatus: string): string {
   
   const mappedStatus = statusMap[githubStatus] || 'Not started'
   
-  // デバッグログを追加
   logger.debug(`🔄 Status mapping: "${githubStatus}" → "${mappedStatus}"`)
   if (mappedStatus === 'Not started') {
     logger.warn(`⚠️ Unmapped GitHub status: "${githubStatus}" - using default "Not started"`)
