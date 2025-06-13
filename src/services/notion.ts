@@ -54,67 +54,6 @@ async function searchNotionByField(
   }
 }
 
-// Helper function to verify and fix Notion page ID if needed
-async function verifyAndFixNotionId(
-  page: NotionPage,
-  expectedId: string,
-  notionToken: string,
-): Promise<void> {
-  try {
-    // デバッグ用：IDプロパティの実際の構造を確認
-    logger.debug(`🔍 Raw ID property structure:`, JSON.stringify(page.properties.ID, null, 2))
-    
-    // IDプロパティの型を自動判定（number型またはrich_text型）
-    let currentId: string | undefined
-    
-    if (page.properties.ID?.rich_text?.[0]?.text?.content) {
-      // Rich text型の場合
-      currentId = page.properties.ID.rich_text[0].text.content
-      logger.debug(`📝 Found rich_text ID: ${currentId}`)
-    } else if ((page.properties.ID as any)?.number !== undefined) {
-      // Number型の場合（古いデータ）
-      currentId = (page.properties.ID as any).number.toString()
-      logger.debug(`🔢 Found number ID: ${currentId}`)
-    } else {
-      logger.warn(`⚠️ ID property has unknown structure`, page.properties.ID)
-    }
-    
-    const pageNumber = page.properties.Number?.number
-    const pageProduct = page.properties.Product?.select?.name
-    const pageTitle = page.properties.Name?.title?.[0]?.text?.content
-    
-    logger.debug(`📋 Page details: ID=${currentId}, Number=${pageNumber}, Product=${pageProduct}, Title="${pageTitle}"`)
-    
-    if (currentId !== expectedId) {
-      logger.info(`🔧 Correcting Notion page ID: ${currentId} → ${expectedId} (Page: "${pageTitle}")`)
-      
-      await axios.patch(
-        `https://api.notion.com/v1/pages/${page.id}`,
-        {
-          properties: {
-            ID: { 
-              rich_text: [{ text: { content: expectedId } }]
-            },
-          },
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${notionToken}`,
-            'Content-Type': 'application/json',
-            'Notion-Version': '2022-06-28',
-          },
-        },
-      )
-      
-      logger.info(`✅ Successfully corrected Notion page ID to ${expectedId}`)
-    } else {
-      logger.debug(`✅ Page ID ${currentId} is already correct`)
-    }
-  } catch (error) {
-    logger.warn(`⚠️ Failed to correct Notion page ID: ${error}`)
-  }
-}
-
 // Robust multi-criteria search for existing Notion pages
 export async function findExistingNotionPage(
   item: GitHubItem,
@@ -123,37 +62,13 @@ export async function findExistingNotionPage(
 ): Promise<NotionPage | null> {
   logger.debug(`🔍 Searching for existing Notion page for GitHub item #${item.number} (ID: ${item.id})`)
   
-  // Strategy 1: Search by GitHub ID
-  logger.debug(`1️⃣ Searching by GitHub ID: ${item.id}`)
-  let results = await searchNotionByField('ID', item.id, notionToken, notionDatabaseId)
+  // Search by GitHub ID only
+  logger.debug(`🔍 Searching by GitHub ID: ${item.id}`)
+  const results = await searchNotionByField('ID', item.id, notionToken, notionDatabaseId)
   
   if (results.length > 0) {
     logger.info(`✅ Found page by GitHub ID: ${item.id}`)
-    const page = results[0]
-    await verifyAndFixNotionId(page, item.id, notionToken)
-    return page
-  }
-  
-  // Strategy 2: Search by Issue/PR Number
-  logger.debug(`2️⃣ Searching by Number: ${item.number}`)
-  results = await searchNotionByField('Number', item.number, notionToken, notionDatabaseId)
-  
-  if (results.length > 0) {
-    logger.info(`✅ Found page by Number: ${item.number}, correcting ID`)
-    const page = results[0]
-    await verifyAndFixNotionId(page, item.id, notionToken)
-    return page
-  }
-  
-  // Strategy 3: Search by URL
-  logger.debug(`3️⃣ Searching by URL: ${item.html_url}`)
-  results = await searchNotionByField('URL', item.html_url, notionToken, notionDatabaseId)
-  
-  if (results.length > 0) {
-    logger.info(`✅ Found page by URL: ${item.html_url}, correcting ID`)
-    const page = results[0]
-    await verifyAndFixNotionId(page, item.id, notionToken)
-    return page
+    return results[0]
   }
   
   logger.debug(`❌ No existing Notion page found for GitHub item #${item.number}`)
