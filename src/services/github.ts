@@ -299,7 +299,7 @@ export async function getProjectItems(
                     body
                     state
                     merged
-                    draft
+                    isDraft
                     created_at: createdAt
                     updated_at: updatedAt
                     html_url: url
@@ -447,7 +447,7 @@ export async function getProjectItems(
           // Pull Request固有のフィールドを追加
           if ('merged' in content) {
             (transformedItem as any).merged = content.merged
-            (transformedItem as any).draft = content.draft
+            (transformedItem as any).draft = content.isDraft
           }
 
           items.push(transformedItem)

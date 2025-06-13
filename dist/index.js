@@ -46997,7 +46997,7 @@ async function getProjectItems(owner, projectName, githubToken) {
                     body
                     state
                     merged
-                    draft
+                    isDraft
                     created_at: createdAt
                     updated_at: updatedAt
                     html_url: url
@@ -47102,7 +47102,7 @@ async function getProjectItems(owner, projectName, githubToken) {
                     };
                     // Pull Request固有のフィールドを追加
                     if ('merged' in content) {
-                        transformedItem.merged = content.merged(transformedItem).draft = content.draft;
+                        transformedItem.merged = content.merged(transformedItem).draft = content.isDraft;
                     }
                     items.push(transformedItem);
                 }
