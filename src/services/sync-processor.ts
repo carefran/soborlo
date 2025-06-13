@@ -7,6 +7,7 @@ import {
   updateNotionPage,
   updateNotionPageStatus,
   mapGitHubStatusToNotion,
+  setNotionPageId,
 } from './notion'
 import { getProjectStatus } from './github'
 import { createSyncError } from '../utils/error-handler'
@@ -77,6 +78,9 @@ async function handleNewPage(
   logger.debug('Page data properties:', Object.keys(pageData.properties))
   
   const newPage = await createNotionPage(pageData, config.notionToken)
+  
+  logger.debug(`Setting GitHub ID ${item.id} for new page ${newPage.id}`)
+  await setNotionPageId(newPage.id, item.id, config.notionToken)
   
   if (config.githubToken) {
     await syncProjectStatus(item, repositoryInfo, config, newPage.id, itemType)

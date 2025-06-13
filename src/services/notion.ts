@@ -207,19 +207,6 @@ export function createNotionPageData(
     },
   }
 
-  // 新規作成時のみIDプロパティを追加
-  if (!isUpdate) {
-    baseData.properties.ID = {
-      rich_text: [
-        {
-          text: {
-            content: item.id,
-          },
-        },
-      ],
-    }
-  }
-
   // Add Product field if productName is provided
   if (productName) {
     baseData.properties.Product = {
@@ -263,6 +250,37 @@ export function createNotionPageData(
   }
 
   return baseData
+}
+
+// IDプロパティをページ作成後に設定する関数
+export async function setNotionPageId(
+  pageId: string,
+  githubId: string,
+  notionToken: string,
+): Promise<void> {
+  try {
+    await axios.patch(
+      `https://api.notion.com/v1/pages/${pageId}`,
+      {
+        properties: {
+          ID: { 
+            rich_text: [{ text: { content: githubId } }]
+          },
+        },
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${notionToken}`,
+          'Content-Type': 'application/json',
+          'Notion-Version': '2022-06-28',
+        },
+      },
+    )
+    logger.debug(`✅ Successfully set ID as rich_text: ${githubId}`)
+  } catch (error: any) {
+    logger.error(`❌ Failed to set ID field for page ${pageId} with value ${githubId}:`, error.response?.data?.message || error.message)
+    throw error
+  }
 }
 
 export async function createNotionPage(
