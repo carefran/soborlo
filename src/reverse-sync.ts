@@ -1,9 +1,9 @@
 import * as core from '@actions/core'
 import axios from 'axios'
 import dotenv from 'dotenv'
-import { getProjectStatus, getIssues } from './services/github'
+import { getProjectStatus, getIssuesAndPullRequests } from './services/github'
 import { updateNotionPageStatus, mapGitHubStatusToNotion } from './services/notion'
-import { GitHubIssue } from './types/github'
+import { GitHubItem } from './types/github'
 import { getErrorMessage } from './utils/error-handler'
 import { logger } from './utils/logger'
 
@@ -37,7 +37,7 @@ interface NotionPageWithDetails {
 
 interface MatchResult {
   notionPage: NotionPageWithDetails
-  githubIssue: GitHubIssue | null
+  githubIssue: GitHubItem | null
   matchType: 'pbi-id' | 'title' | 'none'
   matchedBy?: string
 }
@@ -93,7 +93,7 @@ function normalizeTitle(title: string): string {
   return title.replace(/^PBI-\d+:\s*/i, '').trim().toLowerCase()
 }
 
-function matchByTitle(notionTitle: string, githubIssues: GitHubIssue[]): GitHubIssue | null {
+function matchByTitle(notionTitle: string, githubIssues: GitHubItem[]): GitHubItem | null {
   const normalizedNotionTitle = normalizeTitle(notionTitle)
   
   return githubIssues.find(issue => {
@@ -104,7 +104,7 @@ function matchByTitle(notionTitle: string, githubIssues: GitHubIssue[]): GitHubI
 
 async function matchNotionWithGitHub(
   notionPages: NotionPageWithDetails[],
-  githubIssues: GitHubIssue[]
+  githubIssues: GitHubItem[]
 ): Promise<MatchResult[]> {
   const results: MatchResult[] = []
 
@@ -172,7 +172,7 @@ async function reverseSyncNotionToGitHub(dryRun: boolean = false): Promise<void>
     const notionPages = await getNotionPagesForReverseSync(notionToken, notionDatabaseId)
     logger.info(`Found ${notionPages.length} Notion pages to sync (excluding "Not started", "完了", and "無効")`)
 
-    const githubIssues = await getIssues(repo, githubToken)
+    const githubIssues = await getIssuesAndPullRequests(repo, false, githubToken)
     logger.info(`Found ${githubIssues.length} GitHub issues`)
 
     const matchResults = await matchNotionWithGitHub(notionPages, githubIssues)

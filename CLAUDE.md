@@ -12,22 +12,35 @@ This is a GitHub Action that syncs GitHub Issues and Pull Requests to Notion dat
 
 **Entry Point**: `src/index.ts`
 - Main orchestration logic for the GitHub Action
-- Handles 24-hour filtering for incremental syncs (automatically syncs only items updated in last 24 hours)
+- Handles event-based processing (issues/PRs) and scheduled sync (GitHub Projects)
 - Manages both issue and pull request synchronization
 - Coordinates GitHub Projects status synchronization
+
+**Event Handler**: `src/services/event-handler.ts`
+- Processes GitHub webhook events (issues, pull_request)
+- Handles scheduled/manual execution for GitHub Projects sync
+- Provides clear error handling for unsupported event types
+- No fallback processing - fails fast for unknown events
 
 **GitHub Service**: `src/services/github.ts`
 - Handles all GitHub API interactions (REST and GraphQL)
 - Implements pagination for large repositories (100 items per page)
 - Manages GitHub Projects v2 status retrieval via GraphQL
 - Supports both public and private repository access
-- Uses `since` parameter for Issues API, filters Pull Requests by `updated_at`
+- Clean API without time-based filtering (handled at event level)
 
 **Notion Service**: `src/services/notion.ts`
 - Manages Notion API operations and data transformation
 - Converts GitHub markdown to Notion blocks using `@tryfabric/martian`
 - Handles page creation, updates, and status synchronization
 - Maps Japanese GitHub project statuses to Notion
+- Dedicated GitHub ID-based search for existing pages
+
+**Sync Processor**: `src/services/sync-processor.ts`
+- Orchestrates individual item synchronization (`syncGitHubItemToNotion`)
+- Handles existing page updates vs new page creation
+- Manages GitHub Projects status synchronization
+- Provides clear error handling and logging
 
 **Reverse Sync**: `src/reverse-sync.ts`
 - Implements Notion → GitHub Projects status synchronization
@@ -37,13 +50,18 @@ This is a GitHub Action that syncs GitHub Issues and Pull Requests to Notion dat
 
 ## 🔄 Data Flow & Synchronization
 
+### Event-Based Processing
+1. **Issue/PR Events**: Processes single items triggered by webhook events
+2. **Scheduled/Manual**: Fetches all items from GitHub Projects v2
+3. **No Fallback**: Unknown event types result in clear errors
+4. **Targeted Processing**: Each event type has specific, optimized handling
+
 ### Primary Sync (GitHub → Notion)
-1. **24-Hour Filtering**: Automatically calculates `since24h` timestamp and fetches only recently updated items
-2. **Pagination**: Handles large repositories with proper API pagination
-3. **Duplicate Detection**: Checks existing Notion pages by GitHub ID
-4. **Content Sync**: Creates/updates Notion pages with GitHub data
-5. **Status Synchronization**: Fetches GitHub Projects status via GraphQL and maps to Notion
-6. **Error Handling**: Individual item failures don't stop the entire sync
+1. **Event Detection**: Identifies event type and processes accordingly
+2. **GitHub ID Matching**: Searches existing Notion pages by GitHub ID
+3. **Content Sync**: Creates/updates Notion pages with GitHub data
+4. **Status Synchronization**: Fetches GitHub Projects status via GraphQL and maps to Notion
+5. **Error Handling**: Individual item failures don't stop the entire sync
 
 ### Reverse Sync (Notion → GitHub Projects)
 1. **Selective Retrieval**: Gets Notion pages excluding "Not started", "完了", "無効" statuses
@@ -54,24 +72,32 @@ This is a GitHub Action that syncs GitHub Issues and Pull Requests to Notion dat
 ## 📊 Current Features
 
 ### ✅ Implemented Features
-1. **Dual Sync Support**: Syncs both GitHub Issues and Pull Requests (configurable)
+1. **Event-Driven Sync**: Processes individual issues/PRs on webhook events
 2. **GitHub Projects Integration**: Uses GraphQL API to fetch project status from GitHub Projects v2
 3. **Status Mapping**: Maps specific Japanese GitHub project statuses to Notion status field
-4. **Incremental Updates**: Checks for existing Notion pages and updates rather than duplicating
-5. **24-Hour Filtering**: Only syncs items updated in the last 24 hours for efficiency
+4. **Intelligent Updates**: Checks for existing Notion pages and updates rather than duplicating
+5. **Scheduled Project Sync**: Syncs all GitHub Projects items on schedule/manual trigger
 6. **Full Pagination**: Fetches all items with proper API pagination (100 per page)
 7. **Scheduled Sync**: Runs weekdays at 8 AM JST via cron (GitHub Projects v2 events not supported)
 8. **Reverse Sync**: Bidirectional status synchronization from Notion to GitHub Projects
-9. **Smart Matching**: PBI-ID based matching with title fallback for reverse sync
+9. **Smart Matching**: GitHub ID-based matching with fallback to creation
+10. **Clear Error Handling**: Fail-fast approach for unsupported configurations
 
 ### 🚧 Roadmap Status
 - ✅ **Phase 1**: GitHub Issues → Notion sync (Complete)
 - ✅ **Phase 1.5**: GitHub Pull Requests → Notion sync (Complete)
 - ✅ **Phase 2**: GitHub Projects Status → Notion sync (Complete)
 - ✅ **Phase 2.5**: Notion → GitHub Projects status sync (Complete - reverse-sync.ts)
-- 🚧 **Phase 3**: Full bidirectional sync with conflict resolution (Planned)
+- ✅ **Phase 3**: Event-driven architecture with clean error handling (Complete)
+- 🚧 **Phase 4**: Full bidirectional sync with conflict resolution (Planned)
 
 ## 🔧 Technical Implementation Details
+
+### Event Processing Architecture
+- **Issue Events**: Processes single issue via `getSingleIssue`
+- **PR Events**: Processes single PR via `getSinglePullRequest`
+- **Scheduled/Manual**: Processes all GitHub Projects items via `getProjectItems`
+- **Unknown Events**: Throws clear error with supported event types
 
 ### GitHub Projects Integration
 - Uses GraphQL API for GitHub Projects v2 status retrieval
@@ -82,7 +108,7 @@ This is a GitHub Action that syncs GitHub Issues and Pull Requests to Notion dat
 ### Notion Database Schema
 Required properties:
 - **Name** (Title): Issue/PR title
-- **ID** (Number): GitHub issue/PR ID
+- **ID** (Rich Text): GitHub ID for unique identification
 - **Number** (Number): GitHub issue/PR number
 - **State** (Select): Open/Closed
 - **Status** (Status): Project status with specific Japanese values
@@ -92,10 +118,11 @@ Required properties:
 - **Product** (Select): Repository/Product name for categorization
 
 ### Performance Optimizations
-- **24-Hour Window**: `const since24h = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()`
-- **Pagination**: Issues API uses `since` parameter, Pull Requests filtered by `updated_at` after fetching
+- **Event-Driven**: Only processes relevant items, no time-based filtering
+- **Pagination**: Efficient API pagination for large datasets
 - **API Rate Limiting**: Proper delays between operations
 - **Individual Error Handling**: Failed items don't break entire sync
+- **Clean APIs**: Removed unused parameters and fallback logic
 
 ## 🚀 Usage & Configuration
 
@@ -103,6 +130,8 @@ Required properties:
 ```yaml
 on:
   issues:
+    types: [opened, edited, deleted, reopened, closed]
+  pull_request:
     types: [opened, edited, deleted, reopened, closed]
   schedule:
     - cron: '0 23 * * 0-4'  # Weekdays 8AM JST (UTC 11PM previous day)
@@ -137,13 +166,15 @@ on:
 
 ## 🔍 Important Notes for Future Development
 
-1. **API Rate Limits**: Proper delays implemented between operations to respect GitHub/Notion API limits
-2. **Error Isolation**: Individual item sync failures don't affect other items
-3. **Status Mapping**: Hardcoded Japanese status mappings in `mapGitHubStatusToNotion()` function
-4. **Project Targeting**: Currently looks for "Troika" project first, then falls back to first available
-5. **Token Hierarchy**: `PROJECT_TOKEN` takes precedence over `GITHUB_TOKEN` for enhanced permissions
-6. **24-Hour Default**: Automatic time-based filtering reduces API usage
-7. **Markdown Conversion**: Uses `@tryfabric/martian` with fallback to plain text paragraphs
+1. **Event-Driven Architecture**: System responds to specific events, no fallback processing
+2. **Clear Error Handling**: Unknown events result in explicit errors with guidance
+3. **API Rate Limits**: Proper delays implemented between operations to respect GitHub/Notion API limits
+4. **Error Isolation**: Individual item sync failures don't affect other items
+5. **Status Mapping**: Hardcoded Japanese status mappings in `mapGitHubStatusToNotion()` function
+6. **Project Targeting**: Currently looks for "Troika" project first, then falls back to first available
+7. **Token Hierarchy**: `PROJECT_TOKEN` takes precedence over `GITHUB_TOKEN` for enhanced permissions
+8. **GitHub ID Matching**: Uses GitHub's node_id for reliable page identification
+9. **Markdown Conversion**: Uses `@tryfabric/martian` with fallback to plain text paragraphs
 
 ## 🚨 Critical Implementation Details
 
@@ -153,9 +184,16 @@ on:
 - **GraphQL required**: Projects v2 status requires GraphQL API, not REST API
 
 ### Notion Property Handling
-- **Minimal properties**: Only essential fields synced (removed Assignees, Milestone, PR-specific fields)
+- **ID Field**: Uses Rich Text property type for GitHub ID storage (due to Notion API limitations)
 - **Status property**: Uses Notion's native Status property type
 - **Type property**: Uses Select property (not Multi-select) for Issue/Pull Request
+- **Page Creation Timing**: ID property set after page creation due to Notion API restrictions
+
+### Event Processing Logic
+- **Single Item Events**: Issue/PR webhooks process only the triggered item
+- **Batch Processing**: Scheduled runs process all GitHub Projects items
+- **No Time Filtering**: Removed `since` parameter and 24-hour filtering logic
+- **Fail-Fast**: Unknown event types result in immediate, clear errors
 
 ### Reverse Sync Logic
 - **PBI-ID prioritization**: First attempts to match by PBI-ID pattern in title
@@ -177,21 +215,23 @@ The `dist/` folder contains the compiled action and must be committed to the rep
 
 ## Recent Major Changes
 
-1. **24-Hour Filtering Implementation** (Latest)
-   - Added automatic time-based filtering to reduce API calls
-   - Improves performance for scheduled runs
-   - Maintains full sync capability when needed
+1. **Architecture Cleanup & Refactoring** (Latest)
+   - Removed unused `since` parameter and 24-hour filtering logic
+   - Eliminated fallback processing for unknown events
+   - Renamed functions for clarity (`processSingleItem` → `syncGitHubItemToNotion`)
+   - Optimized logging to reduce redundancy
+   - Clear event-driven architecture with fail-fast error handling
 
-2. **Pagination Support**
-   - Handles repositories with 100+ issues/PRs
-   - Uses GitHub API pagination properly
-   - Prevents missing items due to API limits
+2. **GitHub ID Standardization**
+   - Unified GitHub ID handling using `node_id` for consistency
+   - Simplified Notion page search to use only GitHub ID
+   - Removed complex fallback search strategies
 
-3. **Reverse Sync Capabilities**
-   - Bidirectional status synchronization
-   - Smart matching algorithms
-   - Dry-run testing capability
+3. **Status Synchronization**
+   - Simplified status mapping logic
+   - Clear separation of concerns between GitHub and Notion services
 
-4. **Scheduled Execution**
-   - Switched from unsupported project_v2_item events to cron-based scheduling
-   - Weekday morning execution for optimal workflow integration
+4. **Event Processing**
+   - Clear separation between single-item events and batch processing
+   - Removed unnecessary complexity from event handling
+   - Improved error messages for unsupported events

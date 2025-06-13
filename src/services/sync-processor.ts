@@ -13,7 +13,7 @@ import { getProjectStatus } from './github'
 import { createSyncError } from '../utils/error-handler'
 import { logger } from '../utils/logger'
 
-export async function processSingleItem(
+export async function syncGitHubItemToNotion(
   item: GitHubItem,
   repositoryInfo: RepositoryInfo,
   config: ActionConfig,
@@ -35,9 +35,9 @@ export async function processSingleItem(
     )
 
     if (existingPage) {
-      await handleExistingPage(existingPage.id, pageData, item, repositoryInfo, config, itemType)
+      await updateExistingNotionPage(existingPage.id, pageData, item, repositoryInfo, config, itemType)
     } else {
-      await handleNewPage(pageData, item, repositoryInfo, config, itemType)
+      await createNewNotionPage(pageData, item, repositoryInfo, config, itemType)
     }
 
     logger.info(`${itemType} #${item.number} synced successfully`)
@@ -48,7 +48,7 @@ export async function processSingleItem(
   }
 }
 
-async function handleExistingPage(
+async function updateExistingNotionPage(
   pageId: string,
   pageData: ReturnType<typeof createNotionPageData>,
   item: GitHubItem,
@@ -56,7 +56,7 @@ async function handleExistingPage(
   config: ActionConfig,
   itemType: string,
 ): Promise<void> {
-  logger.info(`${itemType} #${item.number} already exists in Notion, updating it`)
+  logger.debug(`Updating existing ${itemType} #${item.number} in Notion`)
   await updateNotionPage(pageId, pageData, config.notionToken)
   
   if (config.githubToken) {
@@ -66,19 +66,18 @@ async function handleExistingPage(
   }
 }
 
-async function handleNewPage(
+async function createNewNotionPage(
   pageData: ReturnType<typeof createNotionPageData>,
   item: GitHubItem,
   repositoryInfo: RepositoryInfo,
   config: ActionConfig,
   itemType: string,
 ): Promise<void> {
-  logger.info(`Creating new ${itemType} #${item.number} in Notion`)
-  logger.debug('Page data properties:', Object.keys(pageData.properties))
+  logger.debug(`Creating new ${itemType} #${item.number} in Notion`)
   
   const newPage = await createNotionPage(pageData, config.notionToken)
   
-  logger.debug(`Setting GitHub ID ${item.id} for new page ${newPage.id}`)
+  // Notion APIの制限により、ページ作成時にIDプロパティを含められないため後で設定
   await setNotionPageId(newPage.id, item.id, config.notionToken)
   
   if (config.githubToken) {
@@ -129,12 +128,12 @@ async function syncProjectStatus(
   }
 }
 
-export async function processAllItems(
+export async function syncAllItemsToNotion(
   items: GitHubItem[],
   repositoryInfo: RepositoryInfo,
   config: ActionConfig,
 ): Promise<void> {
   for (const item of items) {
-    await processSingleItem(item, repositoryInfo, config)
+    await syncGitHubItemToNotion(item, repositoryInfo, config)
   }
 }

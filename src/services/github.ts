@@ -2,7 +2,7 @@ import axios from 'axios'
 import { GitHubIssue, GitHubPullRequest, GitHubItem } from '../types/github'
 import { logger } from '../utils/logger'
 
-export async function getIssues(repo: string, githubToken?: string, since?: string): Promise<GitHubIssue[]> {
+async function getIssues(repo: string, githubToken?: string): Promise<GitHubIssue[]> {
   const headers: Record<string, string> = {
     'User-Agent': 'github-issue-2-notion',
   }
@@ -15,12 +15,9 @@ export async function getIssues(repo: string, githubToken?: string, since?: stri
   let page = 1
   const perPage = 100
 
-  // since パラメータの構築
-  const sinceParam = since ? `&since=${encodeURIComponent(since)}` : ''
-
   while (true) {
     const response = await axios.get<GitHubIssue[]>(
-      `https://api.github.com/repos/${repo}/issues?state=all&page=${page}&per_page=${perPage}${sinceParam}`,
+      `https://api.github.com/repos/${repo}/issues?state=all&page=${page}&per_page=${perPage}`,
       { headers },
     )
 
@@ -28,13 +25,11 @@ export async function getIssues(repo: string, githubToken?: string, since?: stri
       break
     }
 
-    // Pull Requestを除外（GitHub APIではPRもissuesに含まれる）
     const issues = response.data.filter(issue => !('pull_request' in issue))
     allIssues.push(...issues)
 
     logger.debug(`Fetched page ${page}: ${response.data.length} items (${issues.length} issues after filtering PRs)`)
 
-    // 最後のページの場合は終了
     if (response.data.length < perPage) {
       break
     }
@@ -42,11 +37,10 @@ export async function getIssues(repo: string, githubToken?: string, since?: stri
     page++
   }
 
-  logger.info(`Total issues fetched: ${allIssues.length}`)
   return allIssues
 }
 
-export async function getPullRequests(repo: string, githubToken?: string, since?: string): Promise<GitHubPullRequest[]> {
+async function getPullRequests(repo: string, githubToken?: string): Promise<GitHubPullRequest[]> {
   const headers: Record<string, string> = {
     'User-Agent': 'github-issue-2-notion',
   }
@@ -59,9 +53,6 @@ export async function getPullRequests(repo: string, githubToken?: string, since?
   let page = 1
   const perPage = 100
 
-  // Pull Requests APIではsinceパラメータは利用できないため、取得後にフィルタリング
-  const sinceDate = since ? new Date(since) : null
-
   while (true) {
     const response = await axios.get<GitHubPullRequest[]>(
       `https://api.github.com/repos/${repo}/pulls?state=all&page=${page}&per_page=${perPage}`,
@@ -72,17 +63,10 @@ export async function getPullRequests(repo: string, githubToken?: string, since?
       break
     }
 
-    // Pull Requests APIではsinceパラメータが使えないため、updated_atでフィルタリング
-    let filteredPRs = response.data
-    if (sinceDate) {
-      filteredPRs = response.data.filter(pr => new Date(pr.updated_at) >= sinceDate)
-    }
-    
-    allPullRequests.push(...filteredPRs)
+    allPullRequests.push(...response.data)
 
-    logger.debug(`Fetched PR page ${page}: ${response.data.length} pull requests${sinceDate ? ` (${filteredPRs.length} after since filter)` : ''}`)
+    logger.debug(`Fetched PR page ${page}: ${response.data.length} pull requests`)
 
-    // 最後のページの場合は終了
     if (response.data.length < perPage) {
       break
     }
@@ -90,7 +74,6 @@ export async function getPullRequests(repo: string, githubToken?: string, since?
     page++
   }
 
-  logger.info(`Total pull requests fetched: ${allPullRequests.length}`)
   return allPullRequests
 }
 
@@ -98,12 +81,10 @@ export async function getIssuesAndPullRequests(
   repo: string,
   includePullRequests: boolean,
   githubToken?: string,
-  since?: string,
 ): Promise<GitHubItem[]> {
   const items: GitHubItem[] = []
 
-  const issues = await getIssues(repo, githubToken, since)
-  // REST APIとGraphQL APIでIDの統一性を保つため、node_idを使用
+  const issues = await getIssues(repo, githubToken)
   const transformedIssues = issues.map(issue => ({
     ...issue,
     id: (issue as any).node_id,
@@ -111,7 +92,7 @@ export async function getIssuesAndPullRequests(
   items.push(...transformedIssues)
 
   if (includePullRequests) {
-    const pullRequests = await getPullRequests(repo, githubToken, since)
+    const pullRequests = await getPullRequests(repo, githubToken)
     const transformedPRs = pullRequests.map(pr => ({
       ...pr,
       id: (pr as any).node_id,
@@ -119,6 +100,7 @@ export async function getIssuesAndPullRequests(
     items.push(...transformedPRs)
   }
 
+  logger.info(`Fetched ${transformedIssues.length} issues${includePullRequests ? ` and ${items.length - transformedIssues.length} pull requests` : ''} from ${repo}`)
   return items
 }
 

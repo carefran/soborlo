@@ -1,7 +1,7 @@
 import * as github from '@actions/github'
 import { EventType, EventContext } from '../types/action'
 import { GitHubItem } from '../types/github'
-import { getProjectItems, getSingleIssue, getSinglePullRequest, getIssuesAndPullRequests } from './github'
+import { getProjectItems, getSingleIssue, getSinglePullRequest } from './github'
 import { RepositoryInfo, ActionConfig } from '../types/action'
 import { logger } from '../utils/logger'
 
@@ -21,26 +21,9 @@ export function getEventContext(): EventContext {
     pullRequestNumber: github.context.payload.pull_request?.number,
   }
   
-  logger.debug('📋 GitHub Event Context:')
-  logger.debug(`   Event Name: ${eventName}`)
-  logger.debug(`   Event Type: ${eventType || 'Unknown'}`)
-  logger.debug(`   Issue Number: ${context.issueNumber || 'Not available'}`)
-  logger.debug(`   PR Number: ${context.pullRequestNumber || 'Not available'}`)
-  
-  if (github.context.payload.issue) {
-    logger.debug(`   Issue Action: ${github.context.payload.action || 'Unknown'}`)
-    logger.debug(`   Issue Title: "${github.context.payload.issue.title || 'Unknown'}"`)
-    logger.debug(`   Issue State: ${github.context.payload.issue.state || 'Unknown'}`)
-  }
-  
-  if (github.context.payload.pull_request) {
-    logger.debug(`   PR Action: ${github.context.payload.action || 'Unknown'}`)
-    logger.debug(`   PR Title: "${github.context.payload.pull_request.title || 'Unknown'}"`)
-    logger.debug(`   PR State: ${github.context.payload.pull_request.state || 'Unknown'}`)
-  }
-  
-  logger.debug(`   Repository: ${github.context.repo.owner}/${github.context.repo.repo}`)
-  logger.debug(`   Sender: ${github.context.payload.sender?.login || 'Unknown'}`)
+  logger.info(`Event: ${eventName} | Issue: ${context.issueNumber || 'N/A'} | PR: ${context.pullRequestNumber || 'N/A'}`)
+  logger.debug(`Repository: ${github.context.repo.owner}/${github.context.repo.repo}`)
+  logger.debug(`Sender: ${github.context.payload.sender?.login || 'Unknown'}`)
 
   return context
 }
@@ -57,19 +40,12 @@ export async function fetchItemsBasedOnEvent(
   const { eventType, issueNumber, pullRequestNumber } = eventContext
   const { owner, repoName } = repositoryInfo
 
-  logger.info(`Event type: ${eventContext.eventName}`)
-
   if (isScheduledOrManualEvent(eventType)) {
-    logger.info('Scheduled or manual execution: fetching items from GitHub Projects')
+    logger.info('Fetching items from GitHub Projects')
     return await getProjectItems(owner, config.projectName, config.githubToken)
   }
 
   if (eventType === EventType.ISSUES) {
-    logger.info(`Issue event: processing issue #${issueNumber}`)
-    logger.debug(`📁 Repository: ${owner}/${repoName}`)
-    logger.debug(`🎯 Target project: ${config.projectName || 'auto-detect'}`)
-    logger.debug(`🔑 GitHub token available: ${config.githubToken ? 'Yes' : 'No'}`)
-    
     if (!issueNumber) {
       logger.error('❌ Issue number not found in context')
       return []
@@ -78,10 +54,7 @@ export async function fetchItemsBasedOnEvent(
     const singleIssue = await getSingleIssue(owner, repoName, issueNumber, config.githubToken)
     
     if (singleIssue) {
-      logger.info(`✅ Successfully fetched issue #${issueNumber}: "${singleIssue.title}"`)
-      logger.debug(`   State: ${singleIssue.state}`)
-      logger.debug(`   Labels: ${singleIssue.labels?.map(l => l.name).join(', ') || 'None'}`)
-      logger.debug(`   URL: ${singleIssue.html_url}`)
+      logger.info(`Processing issue #${issueNumber}: "${singleIssue.title}"`)
       return [singleIssue]
     } else {
       logger.error(`❌ Failed to fetch issue #${issueNumber}`)
@@ -90,9 +63,6 @@ export async function fetchItemsBasedOnEvent(
   }
 
   if (eventType === EventType.PULL_REQUEST) {
-    logger.info(`Pull Request event: processing PR #${pullRequestNumber}`)
-    logger.debug(`📁 Repository: ${owner}/${repoName}`)
-    
     if (!pullRequestNumber) {
       logger.error('❌ PR number not found in context')
       return []
@@ -101,8 +71,7 @@ export async function fetchItemsBasedOnEvent(
     const singlePR = await getSinglePullRequest(owner, repoName, pullRequestNumber, config.githubToken)
     
     if (singlePR) {
-      logger.info(`✅ Successfully fetched PR #${pullRequestNumber}: "${singlePR.title}"`)
-      logger.debug(`   State: ${singlePR.state}`)
+      logger.info(`Processing PR #${pullRequestNumber}: "${singlePR.title}"`)
       return [singlePR]
     } else {
       logger.error(`❌ Failed to fetch PR #${pullRequestNumber}`)
@@ -110,21 +79,13 @@ export async function fetchItemsBasedOnEvent(
     }
   }
 
-  // Fallback for unknown events
-  logger.info('Unknown event type: falling back to 24-hour filter')
-  const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
-  return await getIssuesAndPullRequests(
-    config.repo, 
-    config.includePullRequests, 
-    config.githubToken, 
-    since,
-  )
+  // 設計外のイベントタイプの場合はエラー
+  throw new Error(`Unsupported event type: ${eventContext.eventName}. Supported events: issues, pull_request, schedule, workflow_dispatch`)
 }
 
 export function getItemsSyncMessage(
   items: GitHubItem[], 
-  eventContext: EventContext, 
-  config: ActionConfig,
+  eventContext: EventContext,
 ): string {
   const { eventType } = eventContext
   const count = items.length
@@ -141,6 +102,6 @@ export function getItemsSyncMessage(
     return `Found ${count} items to sync (single PR from event)`
   }
 
-  const typeText = config.includePullRequests ? 'Issues and Pull Requests' : 'Issues'
-  return `Found ${count} items to sync (${typeText} updated in last 24 hours)`
+  // この時点では到達しないはずだが、型安全性のため
+  return `Found ${count} items to sync (unknown event type)`
 }
