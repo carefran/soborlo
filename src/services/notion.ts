@@ -3,6 +3,7 @@ import { markdownToBlocks } from '@tryfabric/martian'
 import { GitHubItem, GitHubPullRequest } from '../types/github'
 import { NotionPage, NotionPageData } from '../types/notion'
 import { logger } from '../utils/logger'
+import { retryWithBackoff } from '../utils/retry'
 
 export async function findExistingNotionPage(
   itemId: number,
@@ -159,17 +160,19 @@ export async function updateNotionPage(
   notionToken: string,
 ): Promise<NotionPage> {
   try {
-    const response = await axios.patch<NotionPage>(
-      `https://api.notion.com/v1/pages/${pageId}`,
-      pageData,
-      {
-        headers: {
-          Authorization: `Bearer ${notionToken}`,
-          'Content-Type': 'application/json',
-          'Notion-Version': '2022-06-28',
+    const response = await retryWithBackoff(async () => {
+      return await axios.patch<NotionPage>(
+        `https://api.notion.com/v1/pages/${pageId}`,
+        pageData,
+        {
+          headers: {
+            Authorization: `Bearer ${notionToken}`,
+            'Content-Type': 'application/json',
+            'Notion-Version': '2022-06-28',
+          },
         },
-      },
-    )
+      )
+    })
 
     return response.data
   } catch (error) {
@@ -187,25 +190,27 @@ export async function updateNotionPageStatus(
   notionToken: string,
 ): Promise<void> {
   try {
-    await axios.patch(
-      `https://api.notion.com/v1/pages/${pageId}`,
-      {
-        properties: {
-          Status: {
-            status: {
-              name: statusName,
+    await retryWithBackoff(async () => {
+      await axios.patch(
+        `https://api.notion.com/v1/pages/${pageId}`,
+        {
+          properties: {
+            Status: {
+              status: {
+                name: statusName,
+              },
             },
           },
         },
-      },
-      {
-        headers: {
-          Authorization: `Bearer ${notionToken}`,
-          'Content-Type': 'application/json',
-          'Notion-Version': '2022-06-28',
+        {
+          headers: {
+            Authorization: `Bearer ${notionToken}`,
+            'Content-Type': 'application/json',
+            'Notion-Version': '2022-06-28',
+          },
         },
-      },
-    )
+      )
+    })
     logger.debug(`Updated Notion page ${pageId} status to: ${statusName}`)
   } catch (error) {
     logger.error('Error updating Notion page status:', error)
