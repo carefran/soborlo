@@ -13,7 +13,7 @@ export interface GitHubMilestone {
     due_on: string | null;
 }
 export interface GitHubItem {
-    id: number;
+    id: string;
     number: number;
     title: string;
     state: 'open' | 'closed';

@@ -10,8 +10,12 @@ export interface NotionProperties {
             };
         }>;
     };
-    ID: {
-        number: number;
+    ID?: {
+        rich_text: Array<{
+            text: {
+                content: string;
+            };
+        }>;
     };
     Number: {
         number: number;
