@@ -27,6 +27,12 @@ export interface GitHubItem {
     user: GitHubUser;
 }
 export interface GitHubIssue extends GitHubItem {
+    repository?: {
+        name: string;
+        owner: {
+            login: string;
+        };
+    };
 }
 export interface GitHubPullRequest extends GitHubItem {
     merged: boolean;

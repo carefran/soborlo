@@ -43,7 +43,7 @@ export async function processSingleItem(
     logger.info(`${itemType} #${item.number} synced successfully`)
   } catch (error) {
     const syncError = createSyncError(itemType, item.number, error)
-    logger.error(syncError.message, syncError.cause?.message || '')
+    logger.error(syncError.message, syncError.cause?.message ?? '')
     throw syncError
   }
 }
@@ -92,11 +92,16 @@ async function syncProjectStatus(
 ): Promise<void> {
   logger.debug(`Checking GitHub Projects status for ${itemType} #${item.number}`)
   
+  if (!config.githubToken) {
+    logger.warn('GitHub token not available for project status sync')
+    return
+  }
+  
   const githubStatus = await getProjectStatus(
     repositoryInfo.owner, 
     repositoryInfo.repoName, 
     item.number, 
-    config.githubToken!,
+    config.githubToken,
     config.projectName,
   )
   

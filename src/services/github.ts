@@ -232,7 +232,7 @@ export async function getProjectStatus(
       targetItem = projectItems[0]
     }
     
-    return targetItem?.fieldValueByName?.name || null
+    return targetItem?.fieldValueByName?.name ?? null
   } catch (error) {
     logger.error('Error fetching project status:', error)
     return null
@@ -398,7 +398,7 @@ export async function getProjectItems(
     const projects = initialResponse.data.data?.organization?.projectsV2?.nodes || []
     
     // 指定されたプロジェクト名でフィルタ、なければ最初のプロジェクト
-    const targetProject = projects.find(p => p.title === projectName) || projects[0]
+    const targetProject = projects.find(p => p.title === projectName) ?? projects[0]
     
     if (!targetProject) {
       logger.warn('No projects found')
@@ -423,7 +423,7 @@ export async function getProjectItems(
             id: parseInt(content.id.replace(/\D/g, '')), // GraphQL IDから数値部分を抽出
             number: content.number,
             title: content.title,
-            body: content.body || '',
+            body: content.body ?? '',
             state: content.state.toLowerCase(),
             created_at: content.created_at,
             updated_at: content.updated_at,
@@ -431,12 +431,12 @@ export async function getProjectItems(
             labels: content.labels?.nodes?.map((label: any) => ({
               name: label.name,
               color: label.color,
-            })) || [],
+            })) ?? [],
             assignees: content.assignees?.nodes?.map((assignee: any) => ({
               login: assignee.login,
               avatar_url: assignee.avatar_url,
               html_url: `https://github.com/${assignee.login}`,
-            })) || [],
+            })) ?? [],
             milestone: null, // GraphQLからはmilestone情報を取得していない
             user: {
               login: content.repository.owner.login,
@@ -447,7 +447,7 @@ export async function getProjectItems(
 
           // Pull Request固有のフィールドを追加
           if ('merged' in content) {
-            (transformedItem as any).merged = content.merged
+            (transformedItem as any).merged = content.merged;
             (transformedItem as any).draft = content.isDraft
           }
 

@@ -6,7 +6,7 @@ import { RepositoryInfo, ActionConfig } from '../types/action'
 import { logger } from '../utils/logger'
 
 export function getEventContext(): EventContext {
-  const eventName = process.env.GITHUB_EVENT_NAME || ''
+  const eventName = process.env.GITHUB_EVENT_NAME ?? ''
   
   // EventTypeの判定
   let eventType: EventType | null = null

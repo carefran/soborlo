@@ -31,7 +31,11 @@ export interface GitHubItem {
 }
 
 export interface GitHubIssue extends GitHubItem {
-  // Issue固有のプロパティがあれば追加
+  // Issue固有のプロパティ
+  repository?: {
+    name: string
+    owner: { login: string }
+  }
 }
 
 export interface GitHubPullRequest extends GitHubItem {
