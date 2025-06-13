@@ -31,6 +31,7 @@ export async function processSingleItem(
       item, 
       config.notionDatabaseId, 
       existingPage !== null,
+      repositoryInfo.repoName,
     )
 
     if (existingPage) {

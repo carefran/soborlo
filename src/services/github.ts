@@ -462,7 +462,9 @@ export async function getProjectItems(
 
         // Issue or PullRequest のcontentを GitHubItem 形式に変換
         if (content.repository) {
-          logger.debug(`Processing item: #${content.number}, GraphQL Node ID: ${content.id}`)
+          logger.debug(`Processing item: #${content.number}`)
+          logger.debug(`  GraphQL Node ID: "${content.id}" (type: ${typeof content.id})`)
+          logger.debug(`  Title: "${content.title}"`)
           
           const transformedItem: GitHubItem = {
             id: content.id,  // GraphQLのnode IDを直接使用（文字列）
@@ -489,6 +491,8 @@ export async function getProjectItems(
               html_url: `https://github.com/${content.repository.owner.login}`,
             },
           }
+
+          logger.debug(`  Transformed item ID: "${transformedItem.id}" (type: ${typeof transformedItem.id})`)
 
           // Pull Request固有のフィールドを追加
           if ('merged' in content) {

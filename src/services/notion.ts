@@ -15,7 +15,13 @@ async function searchNotionByField(
   try {
     let filter: any
     
-    if (typeof fieldValue === 'number') {
+    // IDフィールドは常にrich_textとして検索（数値の場合は文字列に変換）
+    if (fieldName === 'ID') {
+      filter = {
+        property: fieldName,
+        rich_text: { equals: String(fieldValue) },
+      }
+    } else if (typeof fieldValue === 'number') {
       filter = {
         property: fieldName,
         number: { equals: fieldValue },
