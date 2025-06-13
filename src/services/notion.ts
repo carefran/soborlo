@@ -51,19 +51,27 @@ async function searchNotionByField(
 // Helper function to verify and fix Notion page ID if needed
 async function verifyAndFixNotionId(
   page: NotionPage,
-  expectedId: number,
+  expectedId: string,
   notionToken: string,
 ): Promise<void> {
   try {
-    const currentId = page.properties.ID?.number
+    const currentId = page.properties.ID?.rich_text?.[0]?.text?.content
+    const pageNumber = page.properties.Number?.number
+    const pageProduct = page.properties.Product?.select?.name
+    const pageTitle = page.properties.Name?.title?.[0]?.text?.content
+    
+    logger.debug(`📋 Page details: ID=${currentId}, Number=${pageNumber}, Product=${pageProduct}, Title="${pageTitle}"`)
+    
     if (currentId !== expectedId) {
-      logger.info(`🔧 Correcting Notion page ID: ${currentId} → ${expectedId}`)
+      logger.info(`🔧 Correcting Notion page ID: ${currentId} → ${expectedId} (Page: "${pageTitle}")`)
       
       await axios.patch(
         `https://api.notion.com/v1/pages/${page.id}`,
         {
           properties: {
-            ID: { number: expectedId },
+            ID: { 
+              rich_text: [{ text: { content: expectedId } }]
+            },
           },
         },
         {
@@ -76,6 +84,8 @@ async function verifyAndFixNotionId(
       )
       
       logger.info(`✅ Successfully corrected Notion page ID to ${expectedId}`)
+    } else {
+      logger.debug(`✅ Page ID ${currentId} is already correct`)
     }
   } catch (error) {
     logger.warn(`⚠️ Failed to correct Notion page ID: ${error}`)
@@ -151,7 +161,13 @@ export function createNotionPageData(
         ],
       },
       ID: {
-        number: item.id,
+        rich_text: [
+          {
+            text: {
+              content: item.id,
+            },
+          },
+        ],
       },
       Number: {
         number: item.number,

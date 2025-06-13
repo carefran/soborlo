@@ -104,12 +104,22 @@ export async function getIssuesAndPullRequests(
 
   // 常にIssueを取得
   const issues = await getIssues(repo, githubToken, since)
-  items.push(...issues)
+  // node_idをidとして使用
+  const transformedIssues = issues.map(issue => ({
+    ...issue,
+    id: (issue as any).node_id,  // REST APIのnode_idを使用
+  }))
+  items.push(...transformedIssues)
 
   // オプションでPull Requestを取得
   if (includePullRequests) {
     const pullRequests = await getPullRequests(repo, githubToken, since)
-    items.push(...pullRequests)
+    // node_idをidとして使用
+    const transformedPRs = pullRequests.map(pr => ({
+      ...pr,
+      id: (pr as any).node_id,  // REST APIのnode_idを使用
+    }))
+    items.push(...transformedPRs)
   }
 
   return items
@@ -445,15 +455,17 @@ export async function getProjectItems(
     let cursor = targetProject.items.pageInfo.endCursor
     
     // 初回のアイテムを処理
-    const processItems = (itemNodes: any[]) => {
+    const processItems = async (itemNodes: any[]) => {
       for (const item of itemNodes) {
         const content = item.content
         if (!content) continue
 
         // Issue or PullRequest のcontentを GitHubItem 形式に変換
         if (content.repository) {
+          logger.debug(`Processing item: #${content.number}, GraphQL Node ID: ${content.id}`)
+          
           const transformedItem: GitHubItem = {
-            id: parseInt(content.id.replace(/\D/g, '')), // GraphQL IDから数値部分を抽出
+            id: content.id,  // GraphQLのnode IDを直接使用（文字列）
             number: content.number,
             title: content.title,
             body: content.body ?? '',
@@ -489,7 +501,7 @@ export async function getProjectItems(
       }
     }
     
-    processItems(targetProject.items.nodes)
+    await processItems(targetProject.items.nodes)
     logger.debug(`Processed initial page: ${targetProject.items.nodes.length} items`)
 
     // ページネーションで残りのアイテムを取得
@@ -549,7 +561,7 @@ export async function getProjectItems(
         break
       }
 
-      processItems(nextProject.items.nodes)
+      await processItems(nextProject.items.nodes)
       logger.debug(`Processed page: ${nextProject.items.nodes.length} items`)
       
       hasNextPage = nextProject.items.pageInfo.hasNextPage
@@ -590,7 +602,11 @@ export async function getSingleIssue(
       return null
     }
 
-    return response.data
+    // node_idをidとして使用
+    return {
+      ...response.data,
+      id: (response.data as any).node_id,
+    }
   } catch (error) {
     logger.error(`Error fetching issue #${issueNumber}:`, error)
     return null
@@ -617,9 +633,13 @@ export async function getSinglePullRequest(
       { headers },
     )
 
-    return response.data
+    // node_idをidとして使用
+    return {
+      ...response.data,
+      id: (response.data as any).node_id,
+    }
   } catch (error) {
-    logger.error(`Error fetching PR #${prNumber}:`, error)
+    logger.error(`Error fetching pull request #${prNumber}:`, error)
     return null
   }
 }

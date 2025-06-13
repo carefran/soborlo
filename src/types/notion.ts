@@ -12,7 +12,11 @@ export interface NotionProperties {
     }>
   }
   ID: {
-    number: number
+    rich_text: Array<{
+      text: {
+        content: string
+      }
+    }>
   }
   Number: {
     number: number

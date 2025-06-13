@@ -16,7 +16,7 @@ export interface GitHubMilestone {
 }
 
 export interface GitHubItem {
-  id: number
+  id: string
   number: number
   title: string
   state: 'open' | 'closed'
