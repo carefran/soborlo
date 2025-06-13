@@ -1,6 +1,7 @@
 import * as core from '@actions/core'
 import { ActionConfig, RepositoryInfo } from '../types/action'
 import { ConfigurationError } from '../utils/error-handler'
+import { logger } from '../utils/logger'
 
 export function getActionConfig(): ActionConfig {
   const config = {
@@ -39,9 +40,9 @@ export function parseRepositoryInfo(repo: string): RepositoryInfo {
 }
 
 export function logConfig(config: ActionConfig): void {
-  console.log(`Syncing items from repository: ${config.repo}`)
-  console.log(`Include Pull Requests: ${config.includePullRequests}`)
+  logger.info(`Syncing items from repository: ${config.repo}`)
+  logger.info(`Include Pull Requests: ${config.includePullRequests}`)
   if (config.projectName) {
-    console.log(`Target Project: ${config.projectName}`)
+    logger.info(`Target Project: ${config.projectName}`)
   }
 }

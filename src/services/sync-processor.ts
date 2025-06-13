@@ -10,6 +10,7 @@ import {
 } from './notion'
 import { getProjectStatus } from './github'
 import { createSyncError } from '../utils/error-handler'
+import { logger } from '../utils/logger'
 
 export async function processSingleItem(
   item: GitHubItem,
@@ -39,10 +40,10 @@ export async function processSingleItem(
       await handleNewPage(pageData, item, repositoryInfo, config, itemType)
     }
 
-    console.log(`${itemType} #${item.number} synced successfully`)
+    logger.info(`${itemType} #${item.number} synced successfully`)
   } catch (error) {
     const syncError = createSyncError(itemType, item.number, error)
-    console.error(syncError.message, syncError.cause?.message || '')
+    logger.error(syncError.message, syncError.cause?.message || '')
     throw syncError
   }
 }
@@ -55,13 +56,13 @@ async function handleExistingPage(
   config: ActionConfig,
   itemType: string,
 ): Promise<void> {
-  console.log(`${itemType} #${item.number} already exists in Notion, updating it`)
+  logger.info(`${itemType} #${item.number} already exists in Notion, updating it`)
   await updateNotionPage(pageId, pageData, config.notionToken)
   
   if (config.githubToken) {
     await syncProjectStatus(item, repositoryInfo, config, pageId, itemType)
   } else {
-    console.log('GitHub token not provided, skipping Projects status sync')
+    logger.warn('GitHub token not provided, skipping Projects status sync')
   }
 }
 
@@ -72,8 +73,8 @@ async function handleNewPage(
   config: ActionConfig,
   itemType: string,
 ): Promise<void> {
-  console.log(`Creating new ${itemType} #${item.number} in Notion`)
-  console.log('Page data properties:', Object.keys(pageData.properties))
+  logger.info(`Creating new ${itemType} #${item.number} in Notion`)
+  logger.debug('Page data properties:', Object.keys(pageData.properties))
   
   const newPage = await createNotionPage(pageData, config.notionToken)
   
@@ -89,7 +90,7 @@ async function syncProjectStatus(
   pageId: string,
   itemType: string,
 ): Promise<void> {
-  console.log(`Checking GitHub Projects status for ${itemType} #${item.number}`)
+  logger.debug(`Checking GitHub Projects status for ${itemType} #${item.number}`)
   
   const githubStatus = await getProjectStatus(
     repositoryInfo.owner, 
@@ -101,10 +102,10 @@ async function syncProjectStatus(
   
   if (githubStatus) {
     const notionStatus = mapGitHubStatusToNotion(githubStatus)
-    console.log(`GitHub Projects status: ${githubStatus} → Notion status: ${notionStatus}`)
+    logger.info(`GitHub Projects status: ${githubStatus} → Notion status: ${notionStatus}`)
     await updateNotionPageStatus(pageId, notionStatus, config.notionToken)
   } else {
-    console.log(`No GitHub Projects status found for ${itemType} #${item.number}`)
+    logger.debug(`No GitHub Projects status found for ${itemType} #${item.number}`)
   }
 }
 

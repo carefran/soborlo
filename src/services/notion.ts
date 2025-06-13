@@ -2,6 +2,7 @@ import axios from 'axios'
 import { markdownToBlocks } from '@tryfabric/martian'
 import { GitHubItem, GitHubPullRequest } from '../types/github'
 import { NotionPage, NotionPageData } from '../types/notion'
+import { logger } from '../utils/logger'
 
 export async function findExistingNotionPage(
   itemId: number,
@@ -101,7 +102,7 @@ export function createNotionPageData(
     if (item.body) {
       try {
         baseData.children = markdownToBlocks(item.body)
-      } catch (error) {
+      } catch {
         baseData.children = [
           {
             object: 'block',
@@ -145,8 +146,8 @@ export async function createNotionPage(
     return response.data
   } catch (error) {
     if (axios.isAxiosError(error) && error.response) {
-      console.error('Notion API Error:', error.response.status, error.response.data)
-      console.error('Request data:', JSON.stringify(pageData, null, 2))
+      logger.error('Notion API Error:', error.response.status, error.response.data)
+      logger.debug('Request data:', JSON.stringify(pageData, null, 2))
     }
     throw error
   }
@@ -173,8 +174,8 @@ export async function updateNotionPage(
     return response.data
   } catch (error) {
     if (axios.isAxiosError(error) && error.response) {
-      console.error('Notion API Error (update):', error.response.status, error.response.data)
-      console.error('Request data:', JSON.stringify(pageData, null, 2))
+      logger.error('Notion API Error (update):', error.response.status, error.response.data)
+      logger.debug('Request data:', JSON.stringify(pageData, null, 2))
     }
     throw error
   }
@@ -205,9 +206,9 @@ export async function updateNotionPageStatus(
         },
       },
     )
-    console.log(`Updated Notion page ${pageId} status to: ${statusName}`)
+    logger.debug(`Updated Notion page ${pageId} status to: ${statusName}`)
   } catch (error) {
-    console.error('Error updating Notion page status:', error)
+    logger.error('Error updating Notion page status:', error)
     throw error
   }
 }

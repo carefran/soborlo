@@ -3,6 +3,7 @@ import { getActionConfig, parseRepositoryInfo, logConfig } from './services/acti
 import { getEventContext, fetchItemsBasedOnEvent, getItemsSyncMessage } from './services/event-handler'
 import { processAllItems } from './services/sync-processor'
 import { getErrorMessage } from './utils/error-handler'
+import { logger } from './utils/logger'
 
 async function main(): Promise<void> {
   try {
@@ -18,21 +19,21 @@ async function main(): Promise<void> {
     const items = await fetchItemsBasedOnEvent(eventContext, repositoryInfo, config)
     
     // 取得結果をログ出力
-    console.log(getItemsSyncMessage(items, eventContext, config))
+    logger.info(getItemsSyncMessage(items, eventContext, config))
 
     // 全アイテムを処理
     await processAllItems(items, repositoryInfo, config)
 
-    console.log('Sync completed successfully')
+    logger.info('Sync completed successfully')
   } catch (error) {
     const errorMessage = getErrorMessage(error)
-    console.error('Error in main:', errorMessage)
+    logger.error('Error in main:', errorMessage)
     core.setFailed(errorMessage)
     process.exit(1)
   }
 }
 
 main().catch(error => {
-  console.error('Unhandled error:', getErrorMessage(error))
+  logger.error('Unhandled error:', getErrorMessage(error))
   process.exit(1)
 }) 

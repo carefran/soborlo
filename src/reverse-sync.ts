@@ -5,6 +5,7 @@ import { getProjectStatus, getIssues } from './services/github'
 import { updateNotionPageStatus, mapGitHubStatusToNotion } from './services/notion'
 import { GitHubIssue } from './types/github'
 import { getErrorMessage } from './utils/error-handler'
+import { logger } from './utils/logger'
 
 // .envファイルを読み込み
 dotenv.config()
@@ -158,21 +159,21 @@ async function reverseSyncNotionToGitHub(dryRun: boolean = false): Promise<void>
     const githubToken = core.getInput('PROJECT_TOKEN') || core.getInput('GITHUB_TOKEN') || process.env.PROJECT_TOKEN || process.env.GITHUB_TOKEN
 
     if (!repo || !notionToken || !notionDatabaseId || !githubToken) {
-      console.error('Missing required environment variables')
+      logger.error('Missing required environment variables')
       process.exit(1)
     }
 
     if (dryRun) {
-      console.log(`🧪 DRY RUN MODE - No actual changes will be made`)
+      logger.info(`🧪 DRY RUN MODE - No actual changes will be made`)
     }
-    console.log(`Starting reverse sync for repository: ${repo}`)
-    console.log(`🎯 Goal: Sync Notion pages (except "Not started", "完了", and "無効") with GitHub Projects status`)
+    logger.info(`Starting reverse sync for repository: ${repo}`)
+    logger.info(`🎯 Goal: Sync Notion pages (except "Not started", "完了", and "無効") with GitHub Projects status`)
 
     const notionPages = await getNotionPagesForReverseSync(notionToken, notionDatabaseId)
-    console.log(`Found ${notionPages.length} Notion pages to sync (excluding "Not started", "完了", and "無効")`)
+    logger.info(`Found ${notionPages.length} Notion pages to sync (excluding "Not started", "完了", and "無効")`)
 
     const githubIssues = await getIssues(repo, githubToken)
-    console.log(`Found ${githubIssues.length} GitHub issues`)
+    logger.info(`Found ${githubIssues.length} GitHub issues`)
 
     const matchResults = await matchNotionWithGitHub(notionPages, githubIssues)
 
@@ -183,13 +184,13 @@ async function reverseSyncNotionToGitHub(dryRun: boolean = false): Promise<void>
     let skippedCount = 0
     const unmatchedPages: NotionPageWithDetails[] = []
 
-    console.log('\n🔍 Processing matches...')
+    logger.info('\n🔍 Processing matches...')
 
     for (const result of matchResults) {
       if (result.githubIssue) {
         matchedCount++
-        console.log(`\n✅ Matched: "${result.notionPage.properties.Name?.title?.[0]?.text?.content}"`)
-        console.log(`   → GitHub Issue #${result.githubIssue.number} (${result.matchType}: ${result.matchedBy})`)
+        logger.info(`\n✅ Matched: "${result.notionPage.properties.Name?.title?.[0]?.text?.content}"`)
+        logger.info(`   → GitHub Issue #${result.githubIssue.number} (${result.matchType}: ${result.matchedBy})`)
 
         try {
           const githubStatus = await getProjectStatus(owner, repoName, result.githubIssue.number, githubToken)
@@ -200,22 +201,22 @@ async function reverseSyncNotionToGitHub(dryRun: boolean = false): Promise<void>
             
             if (currentNotionStatus !== targetNotionStatus) {
               if (dryRun) {
-                console.log(`   🧪 [DRY RUN] Would update status: "${currentNotionStatus}" → "${targetNotionStatus}" (from GitHub Projects: "${githubStatus}")`)
+                logger.info(`   🧪 [DRY RUN] Would update status: "${currentNotionStatus}" → "${targetNotionStatus}" (from GitHub Projects: "${githubStatus}")`)
               } else {
-                console.log(`   📝 Status sync: "${currentNotionStatus}" → "${targetNotionStatus}" (from GitHub Projects: "${githubStatus}")`)
+                logger.info(`   📝 Status sync: "${currentNotionStatus}" → "${targetNotionStatus}" (from GitHub Projects: "${githubStatus}")`)
                 await updateNotionPageStatus(result.notionPage.id, targetNotionStatus, notionToken)
               }
               updatedCount++
             } else {
-              console.log(`   ✓ Status already synced: "${currentNotionStatus}"`)
+              logger.info(`   ✓ Status already synced: "${currentNotionStatus}"`)
               skippedCount++
             }
           } else {
-            console.log(`   ⚠️ No GitHub Projects status found - keeping current Notion status: "${currentNotionStatus}"`)
+            logger.warn(`   ⚠️ No GitHub Projects status found - keeping current Notion status: "${currentNotionStatus}"`)
             skippedCount++
           }
         } catch (error) {
-          console.error(`   ❌ Error syncing status: ${getErrorMessage(error)}`)
+          logger.error(`   ❌ Error syncing status: ${getErrorMessage(error)}`)
           skippedCount++
         }
 
@@ -225,25 +226,25 @@ async function reverseSyncNotionToGitHub(dryRun: boolean = false): Promise<void>
       }
     }
 
-    console.log(`\n📊 Reverse Sync Summary ${dryRun ? '(DRY RUN)' : ''}:`)
-    console.log(`- Total Notion pages processed: ${notionPages.length}`)
-    console.log(`- Matched with GitHub issues: ${matchedCount}`)
-    console.log(`- Status ${dryRun ? 'would be ' : ''}updated: ${updatedCount}`)
-    console.log(`- Status already synced: ${skippedCount}`)
-    console.log(`- Unmatched pages: ${unmatchedPages.length}`)
+    logger.info(`\n📊 Reverse Sync Summary ${dryRun ? '(DRY RUN)' : ''}:`)
+    logger.info(`- Total Notion pages processed: ${notionPages.length}`)
+    logger.info(`- Matched with GitHub issues: ${matchedCount}`)
+    logger.info(`- Status ${dryRun ? 'would be ' : ''}updated: ${updatedCount}`)
+    logger.info(`- Status already synced: ${skippedCount}`)
+    logger.info(`- Unmatched pages: ${unmatchedPages.length}`)
 
     if (unmatchedPages.length > 0) {
-      console.log('\n❌ Unmatched Notion Pages (no corresponding GitHub issue found):')
+      logger.warn('\n❌ Unmatched Notion Pages (no corresponding GitHub issue found):')
       unmatchedPages.forEach((page, index) => {
         const title = page.properties.Name?.title?.[0]?.text?.content || 'Untitled'
         const status = page.properties.Status?.status?.name || 'Unknown'
-        console.log(`${index + 1}. "${title}" (Status: ${status})`)
+        logger.warn(`${index + 1}. "${title}" (Status: ${status})`)
       })
     }
 
-    console.log(`\n✨ Reverse sync ${dryRun ? 'dry run ' : ''}completed successfully`)
+    logger.info(`\n✨ Reverse sync ${dryRun ? 'dry run ' : ''}completed successfully`)
   } catch (error) {
-    console.error('Error in reverse sync:', getErrorMessage(error))
+    logger.error('Error in reverse sync:', getErrorMessage(error))
     process.exit(1)
   }
 }
@@ -252,7 +253,7 @@ if (require.main === module) {
   const isDryRun = process.argv.includes('--dry-run') || process.argv.includes('-d')
   
   reverseSyncNotionToGitHub(isDryRun).catch(error => {
-    console.error('Unhandled error:', getErrorMessage(error))
+    logger.error('Unhandled error:', getErrorMessage(error))
     process.exit(1)
   })
 }

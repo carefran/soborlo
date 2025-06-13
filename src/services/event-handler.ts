@@ -3,6 +3,7 @@ import { EventType, EventContext } from '../types/action'
 import { GitHubItem } from '../types/github'
 import { getProjectItems, getSingleIssue, getSinglePullRequest, getIssuesAndPullRequests } from './github'
 import { RepositoryInfo, ActionConfig } from '../types/action'
+import { logger } from '../utils/logger'
 
 export function getEventContext(): EventContext {
   const eventName = process.env.GITHUB_EVENT_NAME || ''
@@ -35,17 +36,17 @@ export async function fetchItemsBasedOnEvent(
   const { eventType, issueNumber, pullRequestNumber } = eventContext
   const { owner, repoName } = repositoryInfo
 
-  console.log(`Event type: ${eventContext.eventName}`)
+  logger.info(`Event type: ${eventContext.eventName}`)
 
   if (isScheduledOrManualEvent(eventType)) {
-    console.log('Scheduled or manual execution: fetching items from GitHub Projects')
+    logger.info('Scheduled or manual execution: fetching items from GitHub Projects')
     return await getProjectItems(owner, config.projectName, config.githubToken)
   }
 
   if (eventType === EventType.ISSUES) {
-    console.log('Issue event: processing single issue from context')
+    logger.info('Issue event: processing single issue from context')
     if (!issueNumber) {
-      console.error('Issue number not found in context')
+      logger.error('Issue number not found in context')
       return []
     }
     
@@ -54,9 +55,9 @@ export async function fetchItemsBasedOnEvent(
   }
 
   if (eventType === EventType.PULL_REQUEST) {
-    console.log('Pull Request event: processing single PR from context')
+    logger.info('Pull Request event: processing single PR from context')
     if (!pullRequestNumber) {
-      console.error('PR number not found in context')
+      logger.error('PR number not found in context')
       return []
     }
     
@@ -65,7 +66,7 @@ export async function fetchItemsBasedOnEvent(
   }
 
   // Fallback for unknown events
-  console.log('Unknown event type: falling back to 24-hour filter')
+  logger.info('Unknown event type: falling back to 24-hour filter')
   const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
   return await getIssuesAndPullRequests(
     config.repo, 

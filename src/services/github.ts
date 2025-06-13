@@ -1,5 +1,6 @@
 import axios from 'axios'
 import { GitHubIssue, GitHubPullRequest, GitHubItem } from '../types/github'
+import { logger } from '../utils/logger'
 
 export async function getIssues(repo: string, githubToken?: string, since?: string): Promise<GitHubIssue[]> {
   const headers: Record<string, string> = {
@@ -31,7 +32,7 @@ export async function getIssues(repo: string, githubToken?: string, since?: stri
     const issues = response.data.filter(issue => !('pull_request' in issue))
     allIssues.push(...issues)
 
-    console.log(`Fetched page ${page}: ${response.data.length} items (${issues.length} issues after filtering PRs)`)
+    logger.debug(`Fetched page ${page}: ${response.data.length} items (${issues.length} issues after filtering PRs)`)
 
     // 最後のページの場合は終了
     if (response.data.length < perPage) {
@@ -41,7 +42,7 @@ export async function getIssues(repo: string, githubToken?: string, since?: stri
     page++
   }
 
-  console.log(`Total issues fetched: ${allIssues.length}`)
+  logger.info(`Total issues fetched: ${allIssues.length}`)
   return allIssues
 }
 
@@ -79,7 +80,7 @@ export async function getPullRequests(repo: string, githubToken?: string, since?
     
     allPullRequests.push(...filteredPRs)
 
-    console.log(`Fetched PR page ${page}: ${response.data.length} pull requests${sinceDate ? ` (${filteredPRs.length} after since filter)` : ''}`)
+    logger.debug(`Fetched PR page ${page}: ${response.data.length} pull requests${sinceDate ? ` (${filteredPRs.length} after since filter)` : ''}`)
 
     // 最後のページの場合は終了
     if (response.data.length < perPage) {
@@ -89,7 +90,7 @@ export async function getPullRequests(repo: string, githubToken?: string, since?
     page++
   }
 
-  console.log(`Total pull requests fetched: ${allPullRequests.length}`)
+  logger.info(`Total pull requests fetched: ${allPullRequests.length}`)
   return allPullRequests
 }
 
@@ -153,7 +154,7 @@ export async function getProjectStatus(
   `
 
   try {
-    console.log(`Fetching project status for ${owner}/${repo}#${issueNumber}`)
+    logger.debug(`Fetching project status for ${owner}/${repo}#${issueNumber}`)
     
     const response = await axios.post<{
       data: {
@@ -191,12 +192,12 @@ export async function getProjectStatus(
 
     // GraphQLエラーをチェック
     if (response.data.errors) {
-      console.error('GraphQL errors:', response.data.errors)
+      logger.error('GraphQL errors:', response.data.errors)
       return null
     }
 
-    // レスポンス全体をログ出力
-    console.log(`GraphQL response for issue #${issueNumber}:`, JSON.stringify(response.data, null, 2))
+    // レスポンス全体をデバッグ出力
+    logger.debug(`GraphQL response for issue #${issueNumber}:`, JSON.stringify(response.data, null, 2))
 
     const repository = response.data.data?.repository
     if (!repository?.issue?.projectItems?.nodes) {
@@ -205,8 +206,8 @@ export async function getProjectStatus(
 
     const projectItems = repository.issue.projectItems.nodes
     
-    // 利用可能なプロジェクトをログ出力
-    console.log(`Available projects for issue #${issueNumber}:`, 
+    // 利用可能なプロジェクトをデバッグ出力
+    logger.debug(`Available projects for issue #${issueNumber}:`, 
       projectItems.map(item => ({ 
         project: item.project?.title,
         url: item.project?.url,
@@ -222,18 +223,18 @@ export async function getProjectStatus(
     if (projectName) {
       targetItem = projectItems.find(item => item.project?.title === projectName)
       if (!targetItem) {
-        console.log(`Specified project "${projectName}" not found`)
+        logger.warn(`Specified project "${projectName}" not found`)
       }
     }
     
     if (!targetItem && projectItems.length > 0) {
-      console.log(`${projectName ? `Specified project "${projectName}" not found, ` : ''}Using first available project: ${projectItems[0].project?.title}`)
+      logger.info(`${projectName ? `Specified project "${projectName}" not found, ` : ''}Using first available project: ${projectItems[0].project?.title}`)
       targetItem = projectItems[0]
     }
     
     return targetItem?.fieldValueByName?.name || null
   } catch (error) {
-    console.error('Error fetching project status:', error)
+    logger.error('Error fetching project status:', error)
     return null
   }
 }
@@ -244,7 +245,7 @@ export async function getProjectItems(
   githubToken?: string,
 ): Promise<GitHubItem[]> {
   if (!githubToken) {
-    console.log('GitHub token not provided, cannot fetch project items')
+    logger.warn('GitHub token not provided, cannot fetch project items')
     return []
   }
 
@@ -344,7 +345,7 @@ export async function getProjectItems(
   `
 
   try {
-    console.log(`Fetching project items from organization: ${owner}`)
+    logger.debug(`Fetching project items from organization: ${owner}`)
     
     // 初回クエリでプロジェクト一覧を取得
     const initialResponse = await axios.post<{
@@ -390,7 +391,7 @@ export async function getProjectItems(
     )
 
     if (initialResponse.data.errors) {
-      console.error('GraphQL errors:', initialResponse.data.errors)
+      logger.error('GraphQL errors:', initialResponse.data.errors)
       return []
     }
 
@@ -400,11 +401,11 @@ export async function getProjectItems(
     const targetProject = projects.find(p => p.title === projectName) || projects[0]
     
     if (!targetProject) {
-      console.log('No projects found')
+      logger.warn('No projects found')
       return []
     }
 
-    console.log(`Using project: ${targetProject.title}`)
+    logger.info(`Using project: ${targetProject.title}`)
     
     const items: GitHubItem[] = []
     let hasNextPage = targetProject.items.pageInfo.hasNextPage
@@ -456,11 +457,11 @@ export async function getProjectItems(
     }
     
     processItems(targetProject.items.nodes)
-    console.log(`Processed initial page: ${targetProject.items.nodes.length} items`)
+    logger.debug(`Processed initial page: ${targetProject.items.nodes.length} items`)
 
     // ページネーションで残りのアイテムを取得
     while (hasNextPage && cursor) {
-      console.log(`Fetching next page with cursor: ${cursor}`)
+      logger.debug(`Fetching next page with cursor: ${cursor}`)
       
       const nextResponse = await axios.post<{
         data: {
@@ -505,28 +506,28 @@ export async function getProjectItems(
       )
 
       if (nextResponse.data.errors) {
-        console.error('GraphQL errors in pagination:', nextResponse.data.errors)
+        logger.error('GraphQL errors in pagination:', nextResponse.data.errors)
         break
       }
 
       const nextProject = nextResponse.data.data?.organization?.projectsV2?.nodes?.find(p => p.title === targetProject.title)
       if (!nextProject) {
-        console.log('Target project not found in pagination response')
+        logger.warn('Target project not found in pagination response')
         break
       }
 
       processItems(nextProject.items.nodes)
-      console.log(`Processed page: ${nextProject.items.nodes.length} items`)
+      logger.debug(`Processed page: ${nextProject.items.nodes.length} items`)
       
       hasNextPage = nextProject.items.pageInfo.hasNextPage
       cursor = nextProject.items.pageInfo.endCursor
     }
 
-    console.log(`Found ${items.length} total items in project "${targetProject.title}"`)
+    logger.info(`Found ${items.length} total items in project "${targetProject.title}"`)
     return items
 
   } catch (error) {
-    console.error('Error fetching project items:', error)
+    logger.error('Error fetching project items:', error)
     return []
   }
 }
@@ -558,7 +559,7 @@ export async function getSingleIssue(
 
     return response.data
   } catch (error) {
-    console.error(`Error fetching issue #${issueNumber}:`, error)
+    logger.error(`Error fetching issue #${issueNumber}:`, error)
     return null
   }
 }
@@ -585,7 +586,7 @@ export async function getSinglePullRequest(
 
     return response.data
   } catch (error) {
-    console.error(`Error fetching PR #${prNumber}:`, error)
+    logger.error(`Error fetching PR #${prNumber}:`, error)
     return null
   }
 }
