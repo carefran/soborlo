@@ -39,6 +39,11 @@ export interface NotionProperties {
             name: 'Issue' | 'Pull Request';
         };
     };
+    Product?: {
+        select: {
+            name: string;
+        };
+    };
 }
 export interface NotionPageData {
     parent?: {

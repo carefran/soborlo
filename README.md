@@ -8,7 +8,9 @@ A GitHub Action that automatically syncs GitHub Issues and Pull Requests to Noti
 
 - **GitHub Issues → Notion**: Automatically sync issue details (title, labels, assignees, etc.)
 - **GitHub Pull Requests → Notion**: Sync PR information including merge status, branches, and changes
-- **GitHub Projects Status → Notion**: Sync status from GitHub Projects v2 to Notion database ✨ **NEW**
+- **GitHub Projects Status → Notion**: Sync status from GitHub Projects v2 to Notion database
+- **Reverse Sync**: Notion → GitHub Projects status synchronization (manual/batch execution) ✨ **NEW**
+- **Product Categorization**: Automatic repository/product name classification ✨ **NEW**
 - **Real-time updates**: Triggered by GitHub events (issues, PRs, project changes)
 - **Customizable**: Configure which information to sync and how
 
@@ -38,6 +40,7 @@ Create a Notion database with the following properties:
 - **Labels** (Multi-select)
 - **URL** (URL)
 - **Type** (Select: Issue, Pull Request)
+- **Product** (Select: Repository/Product name for categorization)
 
 ### 2. Create GitHub Workflow
 
@@ -91,17 +94,26 @@ Add these secrets to your repository settings:
 
 ## 🔄 Synchronization Events
 
+### GitHub → Notion Sync
 The action is triggered by:
 - **Issue events**: opened, edited, deleted, reopened, closed
 - **Scheduled sync**: Weekdays at 8:00 AM JST for Projects status updates
 - **Manual trigger**: workflow_dispatch
+
+### Notion → GitHub Reverse Sync
+Manual batch execution:
+```bash
+npm run reverse-sync        # Execute reverse sync
+npm run reverse-sync:dry    # Dry run for testing
+```
 
 ## 🛣️ Roadmap
 
 - ✅ GitHub Issues → Notion sync
 - ✅ GitHub Pull Requests → Notion sync  
 - ✅ GitHub Projects Status → Notion sync
-- 🚧 **Phase 2**: Notion → GitHub Projects sync (planned)
+- ✅ **Reverse Sync**: Notion → GitHub Projects status sync
+- ✅ **Product Categorization**: Repository/Product name classification
 - 🚧 **Phase 3**: Full bidirectional sync with conflict resolution
 
 ## 📝 License

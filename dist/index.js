@@ -47095,7 +47095,7 @@ async function findExistingNotionPage(itemId, notionToken, notionDatabaseId) {
 function isPullRequest(item) {
     return 'merged' in item && 'draft' in item;
 }
-function createNotionPageData(item, notionDatabaseId, isUpdate = false) {
+function createNotionPageData(item, notionDatabaseId, isUpdate = false, productName) {
     const isPR = isPullRequest(item);
     const baseData = {
         properties: {
@@ -47134,6 +47134,14 @@ function createNotionPageData(item, notionDatabaseId, isUpdate = false) {
             },
         },
     };
+    // Add Product field if productName is provided
+    if (productName) {
+        baseData.properties.Product = {
+            select: {
+                name: productName,
+            },
+        };
+    }
     if (!isUpdate) {
         baseData.parent = { database_id: notionDatabaseId };
         baseData.icon = { emoji: isPR ? '🔀' : '⚡' };
@@ -47262,7 +47270,7 @@ async function processSingleItem(item, repositoryInfo, config) {
     const itemType = 'merged' in item ? 'Pull Request' : 'Issue';
     try {
         const existingPage = await (0, notion_1.findExistingNotionPage)(item.id, config.notionToken, config.notionDatabaseId);
-        const pageData = (0, notion_1.createNotionPageData)(item, config.notionDatabaseId, existingPage !== null);
+        const pageData = (0, notion_1.createNotionPageData)(item, config.notionDatabaseId, existingPage !== null, repositoryInfo.repoName);
         if (existingPage) {
             await handleExistingPage(existingPage.id, pageData, item, repositoryInfo, config, itemType);
         }

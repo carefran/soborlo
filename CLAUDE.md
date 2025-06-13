@@ -89,6 +89,7 @@ Required properties:
 - **Labels** (Multi-select): GitHub labels
 - **URL** (URL): GitHub issue/PR URL
 - **Type** (Select): Issue/Pull Request
+- **Product** (Select): Repository/Product name for categorization
 
 ### Performance Optimizations
 - **24-Hour Window**: `const since24h = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()`

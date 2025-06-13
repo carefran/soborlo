@@ -38,6 +38,7 @@ export function createNotionPageData(
   item: GitHubItem,
   notionDatabaseId: string,
   isUpdate = false,
+  productName?: string,
 ): NotionPageData {
   const isPR = isPullRequest(item)
   
@@ -77,6 +78,15 @@ export function createNotionPageData(
         },
       },
     },
+  }
+
+  // Add Product field if productName is provided
+  if (productName) {
+    baseData.properties.Product = {
+      select: {
+        name: productName,
+      },
+    }
   }
 
   if (!isUpdate) {

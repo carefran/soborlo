@@ -26,7 +26,12 @@ export async function processSingleItem(
       config.notionDatabaseId,
     )
 
-    const pageData = createNotionPageData(item, config.notionDatabaseId, existingPage !== null)
+    const pageData = createNotionPageData(
+      item, 
+      config.notionDatabaseId, 
+      existingPage !== null,
+      repositoryInfo.repoName,
+    )
 
     if (existingPage) {
       await handleExistingPage(existingPage.id, pageData, item, repositoryInfo, config, itemType)
