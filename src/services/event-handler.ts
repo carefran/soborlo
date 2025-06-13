@@ -17,7 +17,7 @@ export function getEventContext(): EventContext {
     eventName,
     eventType,
     issueNumber: github.context.payload.issue?.number,
-    pullRequestNumber: github.context.payload.pull_request?.number
+    pullRequestNumber: github.context.payload.pull_request?.number,
   }
 
   return context
@@ -30,7 +30,7 @@ export function isScheduledOrManualEvent(eventType: EventType | null): boolean {
 export async function fetchItemsBasedOnEvent(
   eventContext: EventContext,
   repositoryInfo: RepositoryInfo,
-  config: ActionConfig
+  config: ActionConfig,
 ): Promise<GitHubItem[]> {
   const { eventType, issueNumber, pullRequestNumber } = eventContext
   const { owner, repoName } = repositoryInfo
@@ -71,14 +71,14 @@ export async function fetchItemsBasedOnEvent(
     config.repo, 
     config.includePullRequests, 
     config.githubToken, 
-    since
+    since,
   )
 }
 
 export function getItemsSyncMessage(
   items: GitHubItem[], 
   eventContext: EventContext, 
-  config: ActionConfig
+  config: ActionConfig,
 ): string {
   const { eventType } = eventContext
   const count = items.length

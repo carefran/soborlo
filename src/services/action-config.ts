@@ -9,7 +9,7 @@ export function getActionConfig(): ActionConfig {
     notionDatabaseId: core.getInput('NOTION_DATABASE_ID'),
     githubToken: core.getInput('PROJECT_TOKEN') || core.getInput('GITHUB_TOKEN') || undefined,
     includePullRequests: core.getInput('include_pull_requests').toLowerCase() === 'true',
-    projectName: core.getInput('project_name') || undefined
+    projectName: core.getInput('project_name') || undefined,
   }
 
   validateConfig(config)

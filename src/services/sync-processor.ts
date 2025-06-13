@@ -6,7 +6,7 @@ import {
   createNotionPage,
   updateNotionPage,
   updateNotionPageStatus,
-  mapGitHubStatusToNotion
+  mapGitHubStatusToNotion,
 } from './notion'
 import { getProjectStatus } from './github'
 import { createSyncError } from '../utils/error-handler'
@@ -14,16 +14,16 @@ import { createSyncError } from '../utils/error-handler'
 export async function processSingleItem(
   item: GitHubItem,
   repositoryInfo: RepositoryInfo,
-  config: ActionConfig
+  config: ActionConfig,
 ): Promise<void> {
-  const { owner, repoName } = repositoryInfo
+  // const { repoName } = repositoryInfo // Currently unused
   const itemType = 'merged' in item ? 'Pull Request' : 'Issue'
 
   try {
     const existingPage = await findExistingNotionPage(
       item.id,
       config.notionToken,
-      config.notionDatabaseId
+      config.notionDatabaseId,
     )
 
     const pageData = createNotionPageData(item, config.notionDatabaseId, existingPage !== null)
@@ -48,7 +48,7 @@ async function handleExistingPage(
   item: GitHubItem,
   repositoryInfo: RepositoryInfo,
   config: ActionConfig,
-  itemType: string
+  itemType: string,
 ): Promise<void> {
   console.log(`${itemType} #${item.number} already exists in Notion, updating it`)
   await updateNotionPage(pageId, pageData, config.notionToken)
@@ -65,10 +65,10 @@ async function handleNewPage(
   item: GitHubItem,
   repositoryInfo: RepositoryInfo,
   config: ActionConfig,
-  itemType: string
+  itemType: string,
 ): Promise<void> {
   console.log(`Creating new ${itemType} #${item.number} in Notion`)
-  console.log(`Page data properties:`, Object.keys(pageData.properties))
+  console.log('Page data properties:', Object.keys(pageData.properties))
   
   const newPage = await createNotionPage(pageData, config.notionToken)
   
@@ -82,7 +82,7 @@ async function syncProjectStatus(
   repositoryInfo: RepositoryInfo,
   config: ActionConfig,
   pageId: string,
-  itemType: string
+  itemType: string,
 ): Promise<void> {
   console.log(`Checking GitHub Projects status for ${itemType} #${item.number}`)
   
@@ -91,7 +91,7 @@ async function syncProjectStatus(
     repositoryInfo.repoName, 
     item.number, 
     config.githubToken!,
-    config.projectName
+    config.projectName,
   )
   
   if (githubStatus) {
@@ -106,7 +106,7 @@ async function syncProjectStatus(
 export async function processAllItems(
   items: GitHubItem[],
   repositoryInfo: RepositoryInfo,
-  config: ActionConfig
+  config: ActionConfig,
 ): Promise<void> {
   for (const item of items) {
     await processSingleItem(item, repositoryInfo, config)

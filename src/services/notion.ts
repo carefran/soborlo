@@ -6,7 +6,7 @@ import { NotionPage, NotionPageData } from '../types/notion'
 export async function findExistingNotionPage(
   itemId: number,
   notionToken: string,
-  notionDatabaseId: string
+  notionDatabaseId: string,
 ): Promise<NotionPage | null> {
   const response = await axios.post<{ results: NotionPage[] }>(
     `https://api.notion.com/v1/databases/${notionDatabaseId}/query`,
@@ -14,17 +14,17 @@ export async function findExistingNotionPage(
       filter: {
         property: 'ID',
         number: {
-          equals: itemId
-        }
-      }
+          equals: itemId,
+        },
+      },
     },
     {
       headers: {
         Authorization: `Bearer ${notionToken}`,
         'Notion-Version': '2022-06-28',
-        'Content-Type': 'application/json'
-      }
-    }
+        'Content-Type': 'application/json',
+      },
+    },
   )
 
   return response.data.results.length > 0 ? response.data.results[0] : null
@@ -37,7 +37,7 @@ function isPullRequest(item: GitHubItem): item is GitHubPullRequest {
 export function createNotionPageData(
   item: GitHubItem,
   notionDatabaseId: string,
-  isUpdate = false
+  isUpdate = false,
 ): NotionPageData {
   const isPR = isPullRequest(item)
   
@@ -47,36 +47,36 @@ export function createNotionPageData(
         title: [
           {
             text: {
-              content: item.title || (isPR ? 'Untitled Pull Request' : 'Untitled Issue')
-            }
-          }
-        ]
+              content: item.title || (isPR ? 'Untitled Pull Request' : 'Untitled Issue'),
+            },
+          },
+        ],
       },
       ID: {
-        number: item.id
+        number: item.id,
       },
       Number: {
-        number: item.number
+        number: item.number,
       },
       State: {
         select: {
-          name: item.state.charAt(0).toUpperCase() + item.state.slice(1) as 'Open' | 'Closed'
-        }
+          name: item.state.charAt(0).toUpperCase() + item.state.slice(1) as 'Open' | 'Closed',
+        },
       },
       Labels: {
         multi_select: (item.labels || []).map(label => ({
-          name: label.name
-        }))
+          name: label.name,
+        })),
       },
       URL: {
-        url: item.html_url
+        url: item.html_url,
       },
       Type: {
         select: {
-          name: isPR ? 'Pull Request' : 'Issue'
-        }
-      }
-    }
+          name: isPR ? 'Pull Request' : 'Issue',
+        },
+      },
+    },
   }
 
   if (!isUpdate) {
@@ -84,8 +84,8 @@ export function createNotionPageData(
     baseData.icon = { emoji: isPR ? '🔀' : '⚡' }
     baseData.properties.Status = {
       status: {
-        name: 'Not started'
-      }
+        name: 'Not started',
+      },
     }
 
     if (item.body) {
@@ -101,12 +101,12 @@ export function createNotionPageData(
                 {
                   type: 'text',
                   text: {
-                    content: item.body
-                  }
-                }
-              ]
-            }
-          }
+                    content: item.body,
+                  },
+                },
+              ],
+            },
+          },
         ]
       }
     }
@@ -117,7 +117,7 @@ export function createNotionPageData(
 
 export async function createNotionPage(
   pageData: NotionPageData,
-  notionToken: string
+  notionToken: string,
 ): Promise<NotionPage> {
   try {
     const response = await axios.post<NotionPage>(
@@ -127,9 +127,9 @@ export async function createNotionPage(
         headers: {
           Authorization: `Bearer ${notionToken}`,
           'Content-Type': 'application/json',
-          'Notion-Version': '2022-06-28'
-        }
-      }
+          'Notion-Version': '2022-06-28',
+        },
+      },
     )
 
     return response.data
@@ -145,7 +145,7 @@ export async function createNotionPage(
 export async function updateNotionPage(
   pageId: string,
   pageData: NotionPageData,
-  notionToken: string
+  notionToken: string,
 ): Promise<NotionPage> {
   try {
     const response = await axios.patch<NotionPage>(
@@ -155,9 +155,9 @@ export async function updateNotionPage(
         headers: {
           Authorization: `Bearer ${notionToken}`,
           'Content-Type': 'application/json',
-          'Notion-Version': '2022-06-28'
-        }
-      }
+          'Notion-Version': '2022-06-28',
+        },
+      },
     )
 
     return response.data
@@ -173,7 +173,7 @@ export async function updateNotionPage(
 export async function updateNotionPageStatus(
   pageId: string,
   statusName: string,
-  notionToken: string
+  notionToken: string,
 ): Promise<void> {
   try {
     await axios.patch(
@@ -182,18 +182,18 @@ export async function updateNotionPageStatus(
         properties: {
           Status: {
             status: {
-              name: statusName
-            }
-          }
-        }
+              name: statusName,
+            },
+          },
+        },
       },
       {
         headers: {
           Authorization: `Bearer ${notionToken}`,
           'Content-Type': 'application/json',
-          'Notion-Version': '2022-06-28'
-        }
-      }
+          'Notion-Version': '2022-06-28',
+        },
+      },
     )
     console.log(`Updated Notion page ${pageId} status to: ${statusName}`)
   } catch (error) {
@@ -210,7 +210,7 @@ export function mapGitHubStatusToNotion(githubStatus: string): string {
     '今週やる': '今週やる',
     '着手中': '着手中',
     '相談中': '相談中',
-    '完了': '完了'
+    '完了': '完了',
   }
   
   return statusMap[githubStatus] || 'Not started'

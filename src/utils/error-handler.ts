@@ -3,7 +3,7 @@ export class SyncError extends Error {
     message: string,
     public readonly itemType: string,
     public readonly itemNumber: number,
-    public readonly cause?: Error
+    public readonly cause?: Error,
   ) {
     super(message)
     this.name = 'SyncError'
@@ -24,7 +24,7 @@ export function getErrorMessage(error: unknown): string {
 export function createSyncError(
   itemType: string,
   itemNumber: number,
-  originalError: unknown
+  originalError: unknown,
 ): SyncError {
   const message = `Failed to sync ${itemType} #${itemNumber}`
   const cause = originalError instanceof Error ? originalError : undefined

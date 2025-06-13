@@ -29483,132 +29483,6 @@ module.exports = buildConnector
 
 /***/ }),
 
-/***/ 735:
-/***/ ((module) => {
-
-"use strict";
-
-
-/** @type {Record<string, string | undefined>} */
-const headerNameLowerCasedRecord = {}
-
-// https://developer.mozilla.org/docs/Web/HTTP/Headers
-const wellknownHeaderNames = [
-  'Accept',
-  'Accept-Encoding',
-  'Accept-Language',
-  'Accept-Ranges',
-  'Access-Control-Allow-Credentials',
-  'Access-Control-Allow-Headers',
-  'Access-Control-Allow-Methods',
-  'Access-Control-Allow-Origin',
-  'Access-Control-Expose-Headers',
-  'Access-Control-Max-Age',
-  'Access-Control-Request-Headers',
-  'Access-Control-Request-Method',
-  'Age',
-  'Allow',
-  'Alt-Svc',
-  'Alt-Used',
-  'Authorization',
-  'Cache-Control',
-  'Clear-Site-Data',
-  'Connection',
-  'Content-Disposition',
-  'Content-Encoding',
-  'Content-Language',
-  'Content-Length',
-  'Content-Location',
-  'Content-Range',
-  'Content-Security-Policy',
-  'Content-Security-Policy-Report-Only',
-  'Content-Type',
-  'Cookie',
-  'Cross-Origin-Embedder-Policy',
-  'Cross-Origin-Opener-Policy',
-  'Cross-Origin-Resource-Policy',
-  'Date',
-  'Device-Memory',
-  'Downlink',
-  'ECT',
-  'ETag',
-  'Expect',
-  'Expect-CT',
-  'Expires',
-  'Forwarded',
-  'From',
-  'Host',
-  'If-Match',
-  'If-Modified-Since',
-  'If-None-Match',
-  'If-Range',
-  'If-Unmodified-Since',
-  'Keep-Alive',
-  'Last-Modified',
-  'Link',
-  'Location',
-  'Max-Forwards',
-  'Origin',
-  'Permissions-Policy',
-  'Pragma',
-  'Proxy-Authenticate',
-  'Proxy-Authorization',
-  'RTT',
-  'Range',
-  'Referer',
-  'Referrer-Policy',
-  'Refresh',
-  'Retry-After',
-  'Sec-WebSocket-Accept',
-  'Sec-WebSocket-Extensions',
-  'Sec-WebSocket-Key',
-  'Sec-WebSocket-Protocol',
-  'Sec-WebSocket-Version',
-  'Server',
-  'Server-Timing',
-  'Service-Worker-Allowed',
-  'Service-Worker-Navigation-Preload',
-  'Set-Cookie',
-  'SourceMap',
-  'Strict-Transport-Security',
-  'Supports-Loading-Mode',
-  'TE',
-  'Timing-Allow-Origin',
-  'Trailer',
-  'Transfer-Encoding',
-  'Upgrade',
-  'Upgrade-Insecure-Requests',
-  'User-Agent',
-  'Vary',
-  'Via',
-  'WWW-Authenticate',
-  'X-Content-Type-Options',
-  'X-DNS-Prefetch-Control',
-  'X-Frame-Options',
-  'X-Permitted-Cross-Domain-Policies',
-  'X-Powered-By',
-  'X-Requested-With',
-  'X-XSS-Protection'
-]
-
-for (let i = 0; i < wellknownHeaderNames.length; ++i) {
-  const key = wellknownHeaderNames[i]
-  const lowerCasedKey = key.toLowerCase()
-  headerNameLowerCasedRecord[key] = headerNameLowerCasedRecord[lowerCasedKey] =
-    lowerCasedKey
-}
-
-// Note: object prototypes should not be able to be referenced. e.g. `Object#hasOwnProperty`.
-Object.setPrototypeOf(headerNameLowerCasedRecord, null)
-
-module.exports = {
-  wellknownHeaderNames,
-  headerNameLowerCasedRecord
-}
-
-
-/***/ }),
-
 /***/ 8707:
 /***/ ((module) => {
 
@@ -30439,7 +30313,7 @@ const { InvalidArgumentError } = __nccwpck_require__(8707)
 const { Blob } = __nccwpck_require__(181)
 const nodeUtil = __nccwpck_require__(9023)
 const { stringify } = __nccwpck_require__(3480)
-const { headerNameLowerCasedRecord } = __nccwpck_require__(735)
+const { headerNameLowerCasedRecord } = __nccwpck_require__(8543)
 
 const [nodeMajor, nodeMinor] = process.versions.node.split('.').map(v => Number(v))
 
@@ -46620,7 +46494,7 @@ function getActionConfig() {
         notionDatabaseId: core.getInput('NOTION_DATABASE_ID'),
         githubToken: core.getInput('PROJECT_TOKEN') || core.getInput('GITHUB_TOKEN') || undefined,
         includePullRequests: core.getInput('include_pull_requests').toLowerCase() === 'true',
-        projectName: core.getInput('project_name') || undefined
+        projectName: core.getInput('project_name') || undefined,
     };
     validateConfig(config);
     return config;
@@ -46711,7 +46585,7 @@ function getEventContext() {
         eventName,
         eventType,
         issueNumber: github.context.payload.issue?.number,
-        pullRequestNumber: github.context.payload.pull_request?.number
+        pullRequestNumber: github.context.payload.pull_request?.number,
     };
     return context;
 }
@@ -46787,12 +46661,12 @@ exports.getSinglePullRequest = getSinglePullRequest;
 const axios_1 = __importDefault(__nccwpck_require__(7269));
 async function getIssues(repo, githubToken, since) {
     const headers = {
-        'User-Agent': 'github-issue-2-notion'
+        'User-Agent': 'github-issue-2-notion',
     };
     if (githubToken) {
         headers.Authorization = `Bearer ${githubToken}`;
     }
-    let allIssues = [];
+    const allIssues = [];
     let page = 1;
     const perPage = 100;
     // since パラメータの構築
@@ -46817,12 +46691,12 @@ async function getIssues(repo, githubToken, since) {
 }
 async function getPullRequests(repo, githubToken, since) {
     const headers = {
-        'User-Agent': 'github-issue-2-notion'
+        'User-Agent': 'github-issue-2-notion',
     };
     if (githubToken) {
         headers.Authorization = `Bearer ${githubToken}`;
     }
-    let allPullRequests = [];
+    const allPullRequests = [];
     let page = 1;
     const perPage = 100;
     // Pull Requests APIではsinceパラメータは利用できないため、取得後にフィルタリング
@@ -46895,12 +46769,12 @@ async function getProjectStatus(owner, repo, issueNumber, githubToken, projectNa
         console.log(`Fetching project status for ${owner}/${repo}#${issueNumber}`);
         const response = await axios_1.default.post('https://api.github.com/graphql', {
             query,
-            variables: { owner, repo, issueNumber }
+            variables: { owner, repo, issueNumber },
         }, {
             headers: {
                 Authorization: `Bearer ${githubToken}`,
-                'Content-Type': 'application/json'
-            }
+                'Content-Type': 'application/json',
+            },
         });
         // GraphQLエラーをチェック
         if (response.data.errors) {
@@ -46919,7 +46793,7 @@ async function getProjectStatus(owner, repo, issueNumber, githubToken, projectNa
             project: item.project?.title,
             url: item.project?.url,
             owner: item.project?.owner?.login,
-            status: item.fieldValueByName?.name
+            status: item.fieldValueByName?.name,
         })));
         // プロジェクトのStatusを取得（より柔軟な検索）
         // 指定されたプロジェクト名を探し、なければ最初のプロジェクトを使用
@@ -46947,7 +46821,7 @@ async function getProjectItems(owner, projectName, githubToken) {
         return [];
     }
     // 組織レベルプロジェクトから全アイテムを取得するクエリ（ページネーション対応）
-    const getProjectItemsQuery = (cursor) => `
+    const getProjectItemsQuery = (_cursor) => `
     query($owner: String!, $cursor: String) {
       organization(login: $owner) {
         projectsV2(first: 20) {
@@ -47045,12 +46919,12 @@ async function getProjectItems(owner, projectName, githubToken) {
         // 初回クエリでプロジェクト一覧を取得
         const initialResponse = await axios_1.default.post('https://api.github.com/graphql', {
             query: getProjectItemsQuery(),
-            variables: { owner, cursor: null }
+            variables: { owner, cursor: null },
         }, {
             headers: {
                 Authorization: `Bearer ${githubToken}`,
-                'Content-Type': 'application/json'
-            }
+                'Content-Type': 'application/json',
+            },
         });
         if (initialResponse.data.errors) {
             console.error('GraphQL errors:', initialResponse.data.errors);
@@ -47058,7 +46932,7 @@ async function getProjectItems(owner, projectName, githubToken) {
         }
         const projects = initialResponse.data.data?.organization?.projectsV2?.nodes || [];
         // 指定されたプロジェクト名でフィルタ、なければ最初のプロジェクト
-        let targetProject = projects.find(p => p.title === projectName) || projects[0];
+        const targetProject = projects.find(p => p.title === projectName) || projects[0];
         if (!targetProject) {
             console.log('No projects found');
             return [];
@@ -47086,19 +46960,19 @@ async function getProjectItems(owner, projectName, githubToken) {
                         html_url: content.html_url,
                         labels: content.labels?.nodes?.map((label) => ({
                             name: label.name,
-                            color: label.color
+                            color: label.color,
                         })) || [],
                         assignees: content.assignees?.nodes?.map((assignee) => ({
                             login: assignee.login,
                             avatar_url: assignee.avatar_url,
-                            html_url: `https://github.com/${assignee.login}`
+                            html_url: `https://github.com/${assignee.login}`,
                         })) || [],
                         milestone: null, // GraphQLからはmilestone情報を取得していない
                         user: {
                             login: content.repository.owner.login,
                             avatar_url: '',
-                            html_url: `https://github.com/${content.repository.owner.login}`
-                        }
+                            html_url: `https://github.com/${content.repository.owner.login}`,
+                        },
                     };
                     // Pull Request固有のフィールドを追加
                     if ('merged' in content) {
@@ -47115,12 +46989,12 @@ async function getProjectItems(owner, projectName, githubToken) {
             console.log(`Fetching next page with cursor: ${cursor}`);
             const nextResponse = await axios_1.default.post('https://api.github.com/graphql', {
                 query: getProjectItemsQuery(cursor),
-                variables: { owner, cursor }
+                variables: { owner, cursor },
             }, {
                 headers: {
                     Authorization: `Bearer ${githubToken}`,
-                    'Content-Type': 'application/json'
-                }
+                    'Content-Type': 'application/json',
+                },
             });
             if (nextResponse.data.errors) {
                 console.error('GraphQL errors in pagination:', nextResponse.data.errors);
@@ -47146,7 +47020,7 @@ async function getProjectItems(owner, projectName, githubToken) {
 }
 async function getSingleIssue(owner, repo, issueNumber, githubToken) {
     const headers = {
-        'User-Agent': 'github-issue-2-notion'
+        'User-Agent': 'github-issue-2-notion',
     };
     if (githubToken) {
         headers.Authorization = `Bearer ${githubToken}`;
@@ -47166,7 +47040,7 @@ async function getSingleIssue(owner, repo, issueNumber, githubToken) {
 }
 async function getSinglePullRequest(owner, repo, prNumber, githubToken) {
     const headers = {
-        'User-Agent': 'github-issue-2-notion'
+        'User-Agent': 'github-issue-2-notion',
     };
     if (githubToken) {
         headers.Authorization = `Bearer ${githubToken}`;
@@ -47206,15 +47080,15 @@ async function findExistingNotionPage(itemId, notionToken, notionDatabaseId) {
         filter: {
             property: 'ID',
             number: {
-                equals: itemId
-            }
-        }
+                equals: itemId,
+            },
+        },
     }, {
         headers: {
             Authorization: `Bearer ${notionToken}`,
             'Notion-Version': '2022-06-28',
-            'Content-Type': 'application/json'
-        }
+            'Content-Type': 'application/json',
+        },
     });
     return response.data.results.length > 0 ? response.data.results[0] : null;
 }
@@ -47229,44 +47103,44 @@ function createNotionPageData(item, notionDatabaseId, isUpdate = false) {
                 title: [
                     {
                         text: {
-                            content: item.title || (isPR ? 'Untitled Pull Request' : 'Untitled Issue')
-                        }
-                    }
-                ]
+                            content: item.title || (isPR ? 'Untitled Pull Request' : 'Untitled Issue'),
+                        },
+                    },
+                ],
             },
             ID: {
-                number: item.id
+                number: item.id,
             },
             Number: {
-                number: item.number
+                number: item.number,
             },
             State: {
                 select: {
-                    name: item.state.charAt(0).toUpperCase() + item.state.slice(1)
-                }
+                    name: item.state.charAt(0).toUpperCase() + item.state.slice(1),
+                },
             },
             Labels: {
                 multi_select: (item.labels || []).map(label => ({
-                    name: label.name
-                }))
+                    name: label.name,
+                })),
             },
             URL: {
-                url: item.html_url
+                url: item.html_url,
             },
             Type: {
                 select: {
-                    name: isPR ? 'Pull Request' : 'Issue'
-                }
-            }
-        }
+                    name: isPR ? 'Pull Request' : 'Issue',
+                },
+            },
+        },
     };
     if (!isUpdate) {
         baseData.parent = { database_id: notionDatabaseId };
         baseData.icon = { emoji: isPR ? '🔀' : '⚡' };
         baseData.properties.Status = {
             status: {
-                name: 'Not started'
-            }
+                name: 'Not started',
+            },
         };
         if (item.body) {
             try {
@@ -47282,12 +47156,12 @@ function createNotionPageData(item, notionDatabaseId, isUpdate = false) {
                                 {
                                     type: 'text',
                                     text: {
-                                        content: item.body
-                                    }
-                                }
-                            ]
-                        }
-                    }
+                                        content: item.body,
+                                    },
+                                },
+                            ],
+                        },
+                    },
                 ];
             }
         }
@@ -47300,8 +47174,8 @@ async function createNotionPage(pageData, notionToken) {
             headers: {
                 Authorization: `Bearer ${notionToken}`,
                 'Content-Type': 'application/json',
-                'Notion-Version': '2022-06-28'
-            }
+                'Notion-Version': '2022-06-28',
+            },
         });
         return response.data;
     }
@@ -47319,8 +47193,8 @@ async function updateNotionPage(pageId, pageData, notionToken) {
             headers: {
                 Authorization: `Bearer ${notionToken}`,
                 'Content-Type': 'application/json',
-                'Notion-Version': '2022-06-28'
-            }
+                'Notion-Version': '2022-06-28',
+            },
         });
         return response.data;
     }
@@ -47338,16 +47212,16 @@ async function updateNotionPageStatus(pageId, statusName, notionToken) {
             properties: {
                 Status: {
                     status: {
-                        name: statusName
-                    }
-                }
-            }
+                        name: statusName,
+                    },
+                },
+            },
         }, {
             headers: {
                 Authorization: `Bearer ${notionToken}`,
                 'Content-Type': 'application/json',
-                'Notion-Version': '2022-06-28'
-            }
+                'Notion-Version': '2022-06-28',
+            },
         });
         console.log(`Updated Notion page ${pageId} status to: ${statusName}`);
     }
@@ -47364,7 +47238,7 @@ function mapGitHubStatusToNotion(githubStatus) {
         '今週やる': '今週やる',
         '着手中': '着手中',
         '相談中': '相談中',
-        '完了': '完了'
+        '完了': '完了',
     };
     return statusMap[githubStatus] || 'Not started';
 }
@@ -47384,7 +47258,7 @@ const notion_1 = __nccwpck_require__(1304);
 const github_1 = __nccwpck_require__(7865);
 const error_handler_1 = __nccwpck_require__(1694);
 async function processSingleItem(item, repositoryInfo, config) {
-    const { owner, repoName } = repositoryInfo;
+    // const { repoName } = repositoryInfo // Currently unused
     const itemType = 'merged' in item ? 'Pull Request' : 'Issue';
     try {
         const existingPage = await (0, notion_1.findExistingNotionPage)(item.id, config.notionToken, config.notionDatabaseId);
@@ -47415,7 +47289,7 @@ async function handleExistingPage(pageId, pageData, item, repositoryInfo, config
 }
 async function handleNewPage(pageData, item, repositoryInfo, config, itemType) {
     console.log(`Creating new ${itemType} #${item.number} in Notion`);
-    console.log(`Page data properties:`, Object.keys(pageData.properties));
+    console.log('Page data properties:', Object.keys(pageData.properties));
     const newPage = await (0, notion_1.createNotionPage)(pageData, config.notionToken);
     if (config.githubToken) {
         await syncProjectStatus(item, repositoryInfo, config, newPage.id, itemType);
@@ -47495,6 +47369,14 @@ function createSyncError(itemType, itemNumber, originalError) {
     const cause = originalError instanceof Error ? originalError : undefined;
     return new SyncError(message, itemType, itemNumber, cause);
 }
+
+
+/***/ }),
+
+/***/ 8543:
+/***/ ((module) => {
+
+module.exports = eval("require")("./constants");
 
 
 /***/ }),

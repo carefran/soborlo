@@ -3,7 +3,6 @@ import axios from 'axios'
 import dotenv from 'dotenv'
 import { getProjectStatus, getIssues } from './services/github'
 import { updateNotionPageStatus, mapGitHubStatusToNotion } from './services/notion'
-import { NotionPage } from './types/notion'
 import { GitHubIssue } from './types/github'
 import { getErrorMessage } from './utils/error-handler'
 

@@ -3,14 +3,14 @@ import { GitHubIssue, GitHubPullRequest, GitHubItem } from '../types/github'
 
 export async function getIssues(repo: string, githubToken?: string, since?: string): Promise<GitHubIssue[]> {
   const headers: Record<string, string> = {
-    'User-Agent': 'github-issue-2-notion'
+    'User-Agent': 'github-issue-2-notion',
   }
 
   if (githubToken) {
     headers.Authorization = `Bearer ${githubToken}`
   }
 
-  let allIssues: GitHubIssue[] = []
+  const allIssues: GitHubIssue[] = []
   let page = 1
   const perPage = 100
 
@@ -20,7 +20,7 @@ export async function getIssues(repo: string, githubToken?: string, since?: stri
   while (true) {
     const response = await axios.get<GitHubIssue[]>(
       `https://api.github.com/repos/${repo}/issues?state=all&page=${page}&per_page=${perPage}${sinceParam}`,
-      { headers }
+      { headers },
     )
 
     if (response.data.length === 0) {
@@ -47,14 +47,14 @@ export async function getIssues(repo: string, githubToken?: string, since?: stri
 
 export async function getPullRequests(repo: string, githubToken?: string, since?: string): Promise<GitHubPullRequest[]> {
   const headers: Record<string, string> = {
-    'User-Agent': 'github-issue-2-notion'
+    'User-Agent': 'github-issue-2-notion',
   }
 
   if (githubToken) {
     headers.Authorization = `Bearer ${githubToken}`
   }
 
-  let allPullRequests: GitHubPullRequest[] = []
+  const allPullRequests: GitHubPullRequest[] = []
   let page = 1
   const perPage = 100
 
@@ -64,7 +64,7 @@ export async function getPullRequests(repo: string, githubToken?: string, since?
   while (true) {
     const response = await axios.get<GitHubPullRequest[]>(
       `https://api.github.com/repos/${repo}/pulls?state=all&page=${page}&per_page=${perPage}`,
-      { headers }
+      { headers },
     )
 
     if (response.data.length === 0) {
@@ -97,7 +97,7 @@ export async function getIssuesAndPullRequests(
   repo: string,
   includePullRequests: boolean,
   githubToken?: string,
-  since?: string
+  since?: string,
 ): Promise<GitHubItem[]> {
   const items: GitHubItem[] = []
 
@@ -119,7 +119,7 @@ export async function getProjectStatus(
   repo: string,
   issueNumber: number,
   githubToken: string,
-  projectName?: string
+  projectName?: string,
 ): Promise<string | null> {
   // 組織レベルプロジェクト対応のクエリ
   const query = `
@@ -150,7 +150,7 @@ export async function getProjectStatus(
         }
       }
     }
-  `;
+  `
 
   try {
     console.log(`Fetching project status for ${owner}/${repo}#${issueNumber}`)
@@ -179,14 +179,14 @@ export async function getProjectStatus(
       'https://api.github.com/graphql',
       {
         query,
-        variables: { owner, repo, issueNumber }
+        variables: { owner, repo, issueNumber },
       },
       {
         headers: {
           Authorization: `Bearer ${githubToken}`,
-          'Content-Type': 'application/json'
-        }
-      }
+          'Content-Type': 'application/json',
+        },
+      },
     )
 
     // GraphQLエラーをチェック
@@ -211,8 +211,8 @@ export async function getProjectStatus(
         project: item.project?.title,
         url: item.project?.url,
         owner: item.project?.owner?.login,
-        status: item.fieldValueByName?.name 
-      }))
+        status: item.fieldValueByName?.name, 
+      })),
     )
     
     // プロジェクトのStatusを取得（より柔軟な検索）
@@ -241,7 +241,7 @@ export async function getProjectStatus(
 export async function getProjectItems(
   owner: string,
   projectName?: string,
-  githubToken?: string
+  githubToken?: string,
 ): Promise<GitHubItem[]> {
   if (!githubToken) {
     console.log('GitHub token not provided, cannot fetch project items')
@@ -249,7 +249,7 @@ export async function getProjectItems(
   }
 
   // 組織レベルプロジェクトから全アイテムを取得するクエリ（ページネーション対応）
-  const getProjectItemsQuery = (cursor?: string) => `
+  const getProjectItemsQuery = (_cursor?: string) => `
     query($owner: String!, $cursor: String) {
       organization(login: $owner) {
         projectsV2(first: 20) {
@@ -341,7 +341,7 @@ export async function getProjectItems(
         }
       }
     }
-  `;
+  `
 
   try {
     console.log(`Fetching project items from organization: ${owner}`)
@@ -379,14 +379,14 @@ export async function getProjectItems(
       'https://api.github.com/graphql',
       {
         query: getProjectItemsQuery(),
-        variables: { owner, cursor: null }
+        variables: { owner, cursor: null },
       },
       {
         headers: {
           Authorization: `Bearer ${githubToken}`,
-          'Content-Type': 'application/json'
-        }
-      }
+          'Content-Type': 'application/json',
+        },
+      },
     )
 
     if (initialResponse.data.errors) {
@@ -397,7 +397,7 @@ export async function getProjectItems(
     const projects = initialResponse.data.data?.organization?.projectsV2?.nodes || []
     
     // 指定されたプロジェクト名でフィルタ、なければ最初のプロジェクト
-    let targetProject = projects.find(p => p.title === projectName) || projects[0]
+    const targetProject = projects.find(p => p.title === projectName) || projects[0]
     
     if (!targetProject) {
       console.log('No projects found')
@@ -429,19 +429,19 @@ export async function getProjectItems(
             html_url: content.html_url,
             labels: content.labels?.nodes?.map((label: any) => ({
               name: label.name,
-              color: label.color
+              color: label.color,
             })) || [],
             assignees: content.assignees?.nodes?.map((assignee: any) => ({
               login: assignee.login,
               avatar_url: assignee.avatar_url,
-              html_url: `https://github.com/${assignee.login}`
+              html_url: `https://github.com/${assignee.login}`,
             })) || [],
             milestone: null, // GraphQLからはmilestone情報を取得していない
             user: {
               login: content.repository.owner.login,
               avatar_url: '',
-              html_url: `https://github.com/${content.repository.owner.login}`
-            }
+              html_url: `https://github.com/${content.repository.owner.login}`,
+            },
           }
 
           // Pull Request固有のフィールドを追加
@@ -494,14 +494,14 @@ export async function getProjectItems(
         'https://api.github.com/graphql',
         {
           query: getProjectItemsQuery(cursor),
-          variables: { owner, cursor }
+          variables: { owner, cursor },
         },
         {
           headers: {
             Authorization: `Bearer ${githubToken}`,
-            'Content-Type': 'application/json'
-          }
-        }
+            'Content-Type': 'application/json',
+          },
+        },
       )
 
       if (nextResponse.data.errors) {
@@ -535,10 +535,10 @@ export async function getSingleIssue(
   owner: string,
   repo: string,
   issueNumber: number,
-  githubToken?: string
+  githubToken?: string,
 ): Promise<GitHubIssue | null> {
   const headers: Record<string, string> = {
-    'User-Agent': 'github-issue-2-notion'
+    'User-Agent': 'github-issue-2-notion',
   }
 
   if (githubToken) {
@@ -548,7 +548,7 @@ export async function getSingleIssue(
   try {
     const response = await axios.get<GitHubIssue>(
       `https://api.github.com/repos/${owner}/${repo}/issues/${issueNumber}`,
-      { headers }
+      { headers },
     )
 
     // Pull Requestを除外
@@ -567,10 +567,10 @@ export async function getSinglePullRequest(
   owner: string,
   repo: string,
   prNumber: number,
-  githubToken?: string
+  githubToken?: string,
 ): Promise<GitHubPullRequest | null> {
   const headers: Record<string, string> = {
-    'User-Agent': 'github-issue-2-notion'
+    'User-Agent': 'github-issue-2-notion',
   }
 
   if (githubToken) {
@@ -580,7 +580,7 @@ export async function getSinglePullRequest(
   try {
     const response = await axios.get<GitHubPullRequest>(
       `https://api.github.com/repos/${owner}/${repo}/pulls/${prNumber}`,
-      { headers }
+      { headers },
     )
 
     return response.data
