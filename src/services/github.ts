@@ -248,15 +248,15 @@ export async function getProjectItems(
     return []
   }
 
-  // 組織レベルプロジェクトから全アイテムを取得するクエリ
-  const query = `
-    query($owner: String!) {
+  // 組織レベルプロジェクトから全アイテムを取得するクエリ（ページネーション対応）
+  const getProjectItemsQuery = (cursor?: string) => `
+    query($owner: String!, $cursor: String) {
       organization(login: $owner) {
         projectsV2(first: 20) {
           nodes {
             id
             title
-            items(first: 100) {
+            items(first: 100, after: $cursor) {
               pageInfo {
                 hasNextPage
                 endCursor
@@ -346,7 +346,8 @@ export async function getProjectItems(
   try {
     console.log(`Fetching project items from organization: ${owner}`)
     
-    const response = await axios.post<{
+    // 初回クエリでプロジェクト一覧を取得
+    const initialResponse = await axios.post<{
       data: {
         organization: {
           projectsV2: {
@@ -377,8 +378,8 @@ export async function getProjectItems(
     }>(
       'https://api.github.com/graphql',
       {
-        query,
-        variables: { owner }
+        query: getProjectItemsQuery(),
+        variables: { owner, cursor: null }
       },
       {
         headers: {
@@ -388,12 +389,12 @@ export async function getProjectItems(
       }
     )
 
-    if (response.data.errors) {
-      console.error('GraphQL errors:', response.data.errors)
+    if (initialResponse.data.errors) {
+      console.error('GraphQL errors:', initialResponse.data.errors)
       return []
     }
 
-    const projects = response.data.data?.organization?.projectsV2?.nodes || []
+    const projects = initialResponse.data.data?.organization?.projectsV2?.nodes || []
     
     // 指定されたプロジェクト名でフィルタ、なければ最初のプロジェクト
     let targetProject = projects.find(p => p.title === projectName) || projects[0]
@@ -406,43 +407,122 @@ export async function getProjectItems(
     console.log(`Using project: ${targetProject.title}`)
     
     const items: GitHubItem[] = []
+    let hasNextPage = targetProject.items.pageInfo.hasNextPage
+    let cursor = targetProject.items.pageInfo.endCursor
     
-    for (const item of targetProject.items.nodes) {
-      const content = item.content
-      if (!content) continue
+    // 初回のアイテムを処理
+    const processItems = (itemNodes: any[]) => {
+      for (const item of itemNodes) {
+        const content = item.content
+        if (!content) continue
 
-      // Issue or PullRequest のcontentを GitHubItem 形式に変換
-      if (content.repository) {
-        const transformedItem: GitHubItem = {
-          id: parseInt(content.id.replace(/\D/g, '')), // GraphQL IDから数値部分を抽出
-          number: content.number,
-          title: content.title,
-          body: content.body || '',
-          state: content.state.toLowerCase(),
-          created_at: content.created_at,
-          updated_at: content.updated_at,
-          html_url: content.html_url,
-          labels: content.labels?.nodes?.map((label: any) => ({
-            name: label.name,
-            color: label.color
-          })) || [],
-          assignees: content.assignees?.nodes?.map((assignee: any) => ({
-            login: assignee.login,
-            avatar_url: assignee.avatar_url
-          })) || []
+        // Issue or PullRequest のcontentを GitHubItem 形式に変換
+        if (content.repository) {
+          const transformedItem: GitHubItem = {
+            id: parseInt(content.id.replace(/\D/g, '')), // GraphQL IDから数値部分を抽出
+            number: content.number,
+            title: content.title,
+            body: content.body || '',
+            state: content.state.toLowerCase(),
+            created_at: content.created_at,
+            updated_at: content.updated_at,
+            html_url: content.html_url,
+            labels: content.labels?.nodes?.map((label: any) => ({
+              name: label.name,
+              color: label.color
+            })) || [],
+            assignees: content.assignees?.nodes?.map((assignee: any) => ({
+              login: assignee.login,
+              avatar_url: assignee.avatar_url,
+              html_url: `https://github.com/${assignee.login}`
+            })) || [],
+            milestone: null, // GraphQLからはmilestone情報を取得していない
+            user: {
+              login: content.repository.owner.login,
+              avatar_url: '',
+              html_url: `https://github.com/${content.repository.owner.login}`
+            }
+          }
+
+          // Pull Request固有のフィールドを追加
+          if ('merged' in content) {
+            (transformedItem as any).merged = content.merged
+            (transformedItem as any).draft = content.draft
+          }
+
+          items.push(transformedItem)
         }
-
-        // Pull Request固有のフィールドを追加
-        if ('merged' in content) {
-          (transformedItem as any).merged = content.merged
-          (transformedItem as any).draft = content.draft
-        }
-
-        items.push(transformedItem)
       }
     }
+    
+    processItems(targetProject.items.nodes)
+    console.log(`Processed initial page: ${targetProject.items.nodes.length} items`)
 
-    console.log(`Found ${items.length} items in project "${targetProject.title}"`)
+    // ページネーションで残りのアイテムを取得
+    while (hasNextPage && cursor) {
+      console.log(`Fetching next page with cursor: ${cursor}`)
+      
+      const nextResponse = await axios.post<{
+        data: {
+          organization: {
+            projectsV2: {
+              nodes: Array<{
+                id: string
+                title: string
+                items: {
+                  pageInfo: {
+                    hasNextPage: boolean
+                    endCursor: string | null
+                  }
+                  nodes: Array<{
+                    id: string
+                    content: any
+                    fieldValues: {
+                      nodes: Array<{
+                        name: string
+                        field: { name: string }
+                      }>
+                    }
+                  }>
+                }
+              }>
+            }
+          }
+        }
+        errors?: Array<{ message: string }>
+      }>(
+        'https://api.github.com/graphql',
+        {
+          query: getProjectItemsQuery(cursor),
+          variables: { owner, cursor }
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${githubToken}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      )
+
+      if (nextResponse.data.errors) {
+        console.error('GraphQL errors in pagination:', nextResponse.data.errors)
+        break
+      }
+
+      const nextProject = nextResponse.data.data?.organization?.projectsV2?.nodes?.find(p => p.title === targetProject.title)
+      if (!nextProject) {
+        console.log('Target project not found in pagination response')
+        break
+      }
+
+      processItems(nextProject.items.nodes)
+      console.log(`Processed page: ${nextProject.items.nodes.length} items`)
+      
+      hasNextPage = nextProject.items.pageInfo.hasNextPage
+      cursor = nextProject.items.pageInfo.endCursor
+    }
+
+    console.log(`Found ${items.length} total items in project "${targetProject.title}"`)
     return items
 
   } catch (error) {
