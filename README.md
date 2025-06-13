@@ -1,4 +1,4 @@
-# GitHub Issue 2 Notion
+# Sobollo
 
 A GitHub Action that automatically syncs GitHub Issues and Pull Requests to Notion, with **GitHub Projects Status synchronization**.
 
@@ -56,7 +56,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Sync to Notion
-        uses: carefran/GitHub-issue-2-Notion@main
+        uses: carefran/sobollo@main
         with:
           repo: ${{ github.repository }}
           NOTION_API_KEY: ${{ secrets.NOTION_API_KEY }}

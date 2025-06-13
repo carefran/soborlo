@@ -1,8 +1,8 @@
-name: Sync GitHub Issues to Notion
-author: Elvis Mao
-description: A simple tool to sync GitHub issues to Notion beautifully.
+name: Sobollo
+author: CareFran
+description: A simple tool to sync GitHub issues to Notion.
 branding:
-  color: gray-dark
+  color: light-blue
   icon: activity
 inputs:
   repo:

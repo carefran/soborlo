@@ -1,5 +1,5 @@
 {
-  "name": "github-issue-2-notion",
+  "name": "sobollo",
   "version": "1.0.0",
   "description": "A simple tool to sync GitHub issues to Notion",
   "main": "index.js",
