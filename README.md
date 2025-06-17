@@ -9,8 +9,8 @@ A GitHub Action that automatically syncs GitHub Issues and Pull Requests to Noti
 - **GitHub Issues → Notion**: Automatically sync issue details (title, labels, assignees, etc.)
 - **GitHub Pull Requests → Notion**: Sync PR information including merge status, branches, and changes
 - **GitHub Projects Status → Notion**: Sync status from GitHub Projects v2 to Notion database
-- **Reverse Sync**: Notion → GitHub Projects status synchronization (manual/batch execution) ✨ **NEW**
-- **Product Categorization**: Automatic repository/product name classification ✨ **NEW**
+- **Product Categorization**: Automatic repository/product name classification
+- **Reverse Sync**: Notion → GitHub Projects status synchronization (manual/batch execution)
 - **Real-time updates**: Triggered by GitHub events (issues, PRs, project changes)
 - **Customizable**: Configure which information to sync and how
 
@@ -53,7 +53,7 @@ on:
   issues:
     types: [opened, edited, deleted, reopened, closed]
   schedule:
-    - cron: '0 23 * * 0-4'  # 平日JST8時 (UTC前日23時)
+    - cron: '0 5,23 * * 0-4'
   workflow_dispatch:
 
 jobs:
@@ -109,11 +109,6 @@ npm run reverse-sync:dry    # Dry run for testing
 
 ## 🛣️ Roadmap
 
-- ✅ GitHub Issues → Notion sync
-- ✅ GitHub Pull Requests → Notion sync  
-- ✅ GitHub Projects Status → Notion sync
-- ✅ **Reverse Sync**: Notion → GitHub Projects status sync
-- ✅ **Product Categorization**: Repository/Product name classification
 - 🚧 **Phase 3**: Full bidirectional sync with conflict resolution
 
 ## 📝 License
